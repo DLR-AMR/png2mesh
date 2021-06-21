@@ -19,7 +19,8 @@ png2mesh_image_t *png2mesh_read_png(const char* filename)
 {
 	png2mesh_image_t *image = (png2mesh_image_t*) malloc (sizeof(png2mesh_image_t));
         int rowbytes;
-        
+        int bytes_read;
+
         if (image == NULL) {
                 return NULL;
         }
@@ -33,9 +34,9 @@ png2mesh_image_t *png2mesh_read_png(const char* filename)
                 return NULL;
         }
         /* Read the header */
-        fread(header, 1, 8, fp);
+        bytes_read = fread(header, 1, 8, fp);
         /* Chech that header belongs to png file */
-        if (png_sig_cmp(header, 0, 8)) {
+        if (bytes_read != 8 || png_sig_cmp(header, 0, 8)) {
                 fprintf(stderr,"[png2mesh] ERROR: File %s is not a PNG file", filename);
                 free (image);
                 return NULL;
