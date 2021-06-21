@@ -7,10 +7,16 @@
 #include <assert.h>
 #include "png2mesh_readpng.h"
 
+typedef struct {
+	const png2mesh_image_t *image;
+	int		maxlevel; /* maximum allowed refinement level */
+	int		threshold; /* r+g+b threshold for refinement. 0 <= values <= 3*255 */
+} png2mesh_adapt_context_t;
+
 int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, const t8_element_t *element, t8_eclass_scheme_c *scheme, 
-									 const double *tree_vertices, const png2mesh_image_t *image)
+									 const double *tree_vertices, const png2mesh_image_t *image,
+									 const int dark_threshold)
 {
-	const int dark_threshold = 100; /* If rgb sum is smaller, we consider a pixel as dark */
 	double coords_downleft[3];
 	double coords_upright[3];
 	int x_start, x_end, y_start, y_end;
@@ -44,16 +50,12 @@ int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, co
 		 * It does not contain a dark pixel by definition. */
 		return 0;
 	}
-	t8_productionf ("[%i,%i] x [%i,%i]\n", x_start, x_end, y_start, y_end);
-	t8_productionf ("w/h: %i %i\n", image->width, image->height);	
 	/* Iterate over all pixels covered by the element and check
 	 * if any one is dark. */
 	for (ix = x_start;ix < x_end;++ix) {
 		for (iy = y_start;iy < y_end;++iy) {
 			png2mesh_get_rgba (image, ix, iy, &pixel);
 			if (pixel[0] + pixel[1] + pixel[2] < dark_threshold) {
-				/* The element contains a dark pixel */
-				t8_productionf ("Element has dark pixel\n");
 				return 1;
 			}
 		}
@@ -70,36 +72,40 @@ png2mesh_adapt (t8_forest_t forest,
                          t8_eclass_scheme_c * ts,
                          int num_elements, t8_element_t * elements[])
 {
-	const int maxlevel = 10;
-	const png2mesh_image_t *image = (const png2mesh_image_t *) t8_forest_get_user_data (forest);
+	const png2mesh_adapt_context_t *ctx = (const png2mesh_adapt_context_t*) t8_forest_get_user_data (forest);
+	const png2mesh_image_t *image = ctx->image;
+	const int maxlevel = ctx->maxlevel;
 	const double * tree_vertices = t8_forest_get_tree_vertices (forest_from, which_tree);
 
 	if (ts->t8_element_level (elements[0]) >= maxlevel) {
 		return 0;
 	}
 
-	return png2mesh_element_has_dark_pixel (forest_from, which_tree, elements[0], ts, tree_vertices, image);
+	return png2mesh_element_has_dark_pixel (forest_from, which_tree, elements[0], ts, tree_vertices, image, ctx->threshold);
 }
 
-void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const png2mesh_image_t *image)
+void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const png2mesh_adapt_context_t *adapt_context)
 {
 	t8_scheme_cxx_t *scheme = t8_scheme_new_default_cxx ();
 
 	t8_cmesh_t cmesh = t8_cmesh_new_hypercube (element_class, sc_MPI_COMM_WORLD, 0, 0, 0);
 	t8_forest_t forest = t8_forest_new_uniform (cmesh, scheme, level, 0, comm);
-	t8_forest_t forest_adapt = t8_forest_new_adapt (forest, png2mesh_adapt, 1, 0, (void*) image);
+	t8_forest_t forest_adapt = t8_forest_new_adapt (forest, png2mesh_adapt, 1, 0, (void*) adapt_context);
 	t8_forest_t forest_balance;
 	char vtuname[BUFSIZ];
 
-	snprintf (vtuname, BUFSIZ, "t8_png_adapt_%s_%s", basename ( (char*)image->filename), t8_eclass_to_string[element_class]);
+	snprintf (vtuname, BUFSIZ, "t8_png_adapt_%s_%s", basename ( (char*)adapt_context->image->filename), t8_eclass_to_string[element_class]);
 	t8_forest_write_vtk (forest_adapt, vtuname);
 
 	t8_forest_init (&forest_balance);
 	t8_forest_set_balance (forest_balance, forest_adapt, 0);
 	t8_forest_commit (forest_balance);
 
-	snprintf (vtuname, BUFSIZ, "t8_png_balance_%s_%s", basename ((char*)image->filename), t8_eclass_to_string[element_class]);
+	snprintf (vtuname, BUFSIZ, "t8_png_balance_%s_%s", basename ((char*)adapt_context->image->filename), t8_eclass_to_string[element_class]);
 	t8_forest_write_vtk (forest_balance, vtuname);
+
+	printf ("\nSuccessfully build AMR mesh for picture %s.\n", adapt_context->image->filename);
+	printf ("Width:  %i px\nHeight: %i px\n", adapt_context->image->width, adapt_context->image->height);
 
 	t8_forest_unref (&forest_balance);
 }
@@ -108,11 +114,14 @@ int main (int argc, char *argv[])
 {
 	int mpiret;
 	int level = 0;
+	int maxlevel = 0;
 	int helpme = 0;
 	int parsed = 0;
-	int element_shape;
+	int threshold;
+	int element_shape = 0;
 	t8_eclass_t element_class;
 	png2mesh_image_t *pngimage;
+	png2mesh_adapt_context_t adapt_context;
 	sc_options_t *opt;
 	const char *filename;
 	const char *help = "The program reads a png file and builds an adaptive mesh from it.\n"
@@ -137,8 +146,16 @@ int main (int argc, char *argv[])
 						"png file.");
 	sc_options_add_int (opt, 'l', "level", &level, 0,
 						"The initial refinement level of the mesh.");
+	sc_options_add_int (opt, 'm', "maxlevel", &maxlevel, 10,
+						"The maximum allowed refinement level of the mesh.");
+	sc_options_add_int (opt, 't', "threshold", &threshold, 100,
+						"How sensitive the refinement reacts to RGB values.\n"
+						"\t\t\t\t\tThe mesh is refined in areas with red + green + blue < threshold.\n"
+						"\t\t\t\t\tValues must be between 0 and 3*255.");
+#if 0 /* Currently deactived. Reactive when triangles are working. */
 	sc_options_add_int (opt, 'e', "element_shape", &element_shape, 0,
 						"The shape of elements to use. 0: quad, 1: triangle");
+#endif
 
 	parsed =
 		sc_options_parse (-1, SC_LP_ERROR, opt, argc, argv);
@@ -148,11 +165,15 @@ int main (int argc, char *argv[])
 		sc_options_print_usage (t8_get_package_id (), SC_LP_ERROR, opt, NULL);
 	}
 	else if (parsed >= 0 && 0 <= level && strcmp (filename, "") && 
-	    (element_shape == 0 || element_shape == 1)) {
+	    (element_shape == 0 || element_shape == 1)
+		&& level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
 		pngimage = png2mesh_read_png (filename);
 		element_class = element_shape == 0 ? T8_ECLASS_QUAD : T8_ECLASS_TRIANGLE;
 		if (pngimage != NULL) {
-			build_forest (level, element_class, sc_MPI_COMM_WORLD, pngimage);
+			adapt_context.image = pngimage;
+			adapt_context.maxlevel = maxlevel;
+			adapt_context.threshold = threshold;
+			build_forest (level, element_class, sc_MPI_COMM_WORLD, &adapt_context);
 			png2mesh_image_cleanup (pngimage);
 		}
 	}
