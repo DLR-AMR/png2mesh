@@ -1,8 +1,8 @@
-#include "png2mesh_readpng.h"
+#include "../png2mesh_readpng.h"
 
 int main () {
     png2mesh_image_t *pngimage;
-    const char *filename = "./examples/heart.png";
+    const char *filename = "../examples/heart.png";
 
 	pngimage = png2mesh_read_png (filename);
     if (pngimage == NULL) {
