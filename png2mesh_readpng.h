@@ -15,9 +15,18 @@ typedef struct
     /* data */
 } png2mesh_image_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 png2mesh_image_t *png2mesh_read_png(const char* file_name);
 void png2mesh_get_rgba(const png2mesh_image_t *image, const int x, const int y, png_byte **RGBA);
 void png2mesh_image_cleanup (png2mesh_image_t *mypng);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
