@@ -55,7 +55,7 @@ int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, co
 	for (ix = x_start;ix < x_end;++ix) {
 		for (iy = y_start;iy < y_end;++iy) {
 			png2mesh_get_rgba (image, ix, iy, &pixel);
-			if (pixel[0] + pixel[1] + pixel[2] < dark_threshold) {
+			if (pixel[0] + pixel[1] + pixel[2] <= dark_threshold) {
 				return 1;
 			}
 		}
