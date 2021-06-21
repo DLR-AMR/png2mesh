@@ -1,5 +1,7 @@
 # png2mesh
 
+![png2mesh](https://github.com/holke/png2mesh/blob/main/logo/png2mesh_logo_mesh.png?raw=true)
+
 # requirements
 
 - t8code
