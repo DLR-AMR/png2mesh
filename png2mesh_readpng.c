@@ -37,7 +37,7 @@ png2mesh_image_t *png2mesh_read_png(const char* filename)
         bytes_read = fread(header, 1, 8, fp);
         /* Chech that header belongs to png file */
         if (bytes_read != 8 || png_sig_cmp(header, 0, 8)) {
-                fprintf(stderr,"[png2mesh] ERROR: File %s is not a PNG file", filename);
+                fprintf(stderr,"[png2mesh] ERROR: File %s is not a PNG file.\n", filename);
                 free (image);
                 return NULL;
         }

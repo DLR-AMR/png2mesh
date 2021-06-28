@@ -158,7 +158,7 @@ int main (int argc, char *argv[])
 	sc_options_add_switch (opt, 'i', "invert", &invert_int,
 							"Invert the refinement (refine bright areas, not dark).");
 	sc_options_add_int (opt, 'l', "level", &level, 0,
-						"The initial refinement level of the mesh.");
+						"The initial refinement level of the mesh. Default 10.");
 	sc_options_add_int (opt, 'm', "maxlevel", &maxlevel, 10,
 						"The maximum allowed refinement level of the mesh.");
 	sc_options_add_int (opt, 't', "threshold", &threshold, 100,
