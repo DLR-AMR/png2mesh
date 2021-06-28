@@ -11,11 +11,12 @@ typedef struct {
 	const png2mesh_image_t *image;
 	int		maxlevel; /* maximum allowed refinement level */
 	int		threshold; /* r+g+b threshold for refinement. 0 <= values <= 3*255 */
+	bool	invert; /* If true, refine bright areas, not dark. */
 } png2mesh_adapt_context_t;
 
 int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, const t8_element_t *element, t8_eclass_scheme_c *scheme, 
 									 const double *tree_vertices, const png2mesh_image_t *image,
-									 const int dark_threshold)
+									 const int dark_threshold, const bool invert)
 {
 	double coords_downleft[3];
 	double coords_upright[3];
@@ -55,8 +56,16 @@ int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, co
 	for (ix = x_start;ix < x_end;++ix) {
 		for (iy = y_start;iy < y_end;++iy) {
 			png2mesh_get_rgba (image, ix, iy, &pixel);
-			if (pixel[0] + pixel[1] + pixel[2] <= dark_threshold) {
-				return 1;
+			int pixel_sum = pixel[0] + pixel[1] + pixel[2];
+			if (!invert) {
+				if (pixel_sum <= dark_threshold) {
+					return 1;
+				}
+			}
+			else {
+				if (pixel_sum >= dark_threshold) {
+					return 1;
+				}
 			}
 		}
 	}
@@ -81,7 +90,7 @@ png2mesh_adapt (t8_forest_t forest,
 		return 0;
 	}
 
-	return png2mesh_element_has_dark_pixel (forest_from, which_tree, elements[0], ts, tree_vertices, image, ctx->threshold);
+	return png2mesh_element_has_dark_pixel (forest_from, which_tree, elements[0], ts, tree_vertices, image, ctx->threshold, ctx->invert);
 }
 
 void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const png2mesh_adapt_context_t *adapt_context)
@@ -119,6 +128,8 @@ int main (int argc, char *argv[])
 	int parsed = 0;
 	int threshold;
 	int element_shape = 0;
+	int invert_int = 0;
+	bool invert = false;
 	t8_eclass_t element_class;
 	png2mesh_image_t *pngimage;
 	png2mesh_adapt_context_t adapt_context;
@@ -144,6 +155,8 @@ int main (int argc, char *argv[])
 							"Display a short help message.");
 	sc_options_add_string (opt, 'f', "file", &filename, "",
 						"png file.");
+	sc_options_add_switch (opt, 'i', "invert", &invert_int,
+							"Invert the refinement (refine bright areas, not dark).");
 	sc_options_add_int (opt, 'l', "level", &level, 0,
 						"The initial refinement level of the mesh.");
 	sc_options_add_int (opt, 'm', "maxlevel", &maxlevel, 10,
@@ -169,8 +182,10 @@ int main (int argc, char *argv[])
 		&& level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
 		pngimage = png2mesh_read_png (filename);
 		element_class = element_shape == 0 ? T8_ECLASS_QUAD : T8_ECLASS_TRIANGLE;
+		invert = invert_int != 0;
 		if (pngimage != NULL) {
 			adapt_context.image = pngimage;
+			adapt_context.invert = invert;
 			adapt_context.maxlevel = maxlevel;
 			adapt_context.threshold = threshold;
 			build_forest (level, element_class, sc_MPI_COMM_WORLD, &adapt_context);
