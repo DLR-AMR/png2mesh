@@ -1,6 +1,6 @@
 # png2mesh
 
-![png2mesh](https://github.com/holke/png2mesh/blob/main/logo/png2mesh_logo_mesh.png?raw=true)
+<img src="https://github.com/holke/png2mesh/blob/main/logo/png2mesh_logo_mesh.png?raw=true" width="400" height="400" />
 
 # requirements
 
