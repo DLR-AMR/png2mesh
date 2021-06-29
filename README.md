@@ -4,11 +4,11 @@
 
 # requirements
 
-- t8code
+- t8code (develop branch); See ![t8code](https://github.com/holke/t8code/blob/develop)
 - p4est (usually installed with t8code)
 - sc    (usually installed with t8code)
 - libpng
-- MPI (if t8code was build parallel)
+- MPI
 
 # installation
 
