@@ -80,3 +80,6 @@ Use the program as `png2mesh_demo [OPTIONS]`, where OPTIONS can be any of the fo
 # citing
 
 If you use `png2mesh` or pictures generated from it, please cite this github page with Johannes Holke as the author.
+
+<img src="https://github.com/holke/png2mesh/blob/main/logo/smiley_mesh.png?raw=true" width="400" height="400" />
+
