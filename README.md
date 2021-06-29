@@ -7,6 +7,8 @@ In order to do so, it uses the ![t8code](https://github.com/holke/t8code/) libra
 The generated output are 2 `.pvtu` files that can be visualized with the ![paraview](https://www.paraview.org/) software. The first `.pvtu` file stores the original mesh, the second a 2:1 balanced version of that mesh.
 
 
+Currently, the created mesh has quad elements. We are working on extending png2mesh to triangle elements.
+
 # requirements
 
 - t8code (develop branch); See ![t8code](https://github.com/holke/t8code/tree/develop)
