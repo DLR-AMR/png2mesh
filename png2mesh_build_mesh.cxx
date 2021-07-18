@@ -101,8 +101,9 @@ png2mesh_search_callback (t8_forest_t forest,
 	
 	if (query != NULL) {	
 		const png2mesh_adapt_context_t *ctx = (const png2mesh_adapt_context_t*) t8_forest_get_user_data (forest);
-		const int pixel_x = query_index % ctx->image->width;
-		const int pixel_y = query_index / ctx->image->width;
+		const int query_value = *(int *) query;
+		const int pixel_x = query_value % ctx->image->width;
+		const int pixel_y = query_value / ctx->image->width;
 		const double pixel_scaled_coords[3] = {
 			pixel_x / (double) ctx->image->width,
 			1 - pixel_y / (double) ctx->image->height,
@@ -159,6 +160,32 @@ png2mesh_adapt (t8_forest_t forest,
 #endif
 }
 
+/* Build the array of queries.
+ * This array contains all pixels that match the condition.
+ * The pixels are encoded as an integer p with
+ * x = p % image->width
+ * y = p / image->width
+ */
+void png2mesh_build_query_array (sc_array_t *queries, const png2mesh_adapt_context_t *adapt_context)
+{
+	int ipixel;
+	const png2mesh_image_t *image = adapt_context->image;
+	const int num_pixels = image->width * image->height;
+	int array_entry;
+
+	sc_array_init (queries, sizeof (int));
+	for (ipixel = 0;ipixel < num_pixels;++ipixel) {
+		const int x = ipixel % image->width;
+		const int y = ipixel / image->width;
+
+		if (png2mesh_pixel_match (image, x, y, adapt_context->invert, adapt_context->threshold)) {
+			/* This pixel matches, we insert it as query */
+			*(int*)sc_array_push (queries) = ipixel;
+		}
+	}
+	printf ("Build search array with %zd pixels (of %i)\n", queries->elem_count, num_pixels);
+}
+
 void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const png2mesh_adapt_context_t *adapt_context)
 {
 	t8_scheme_cxx_t *scheme = t8_scheme_new_default_cxx ();
@@ -173,10 +200,7 @@ void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const
 	int ilevel;
 
 	sc_array_init ((sc_array_t*)&adapt_context->refinement_markers, sizeof (int));
-	/* We need as many queries as pixels in the image.
-	 * But, we do not need to fill them, since their index is enough information for
-	 * the search callback. */
-	sc_array_init_count (&search_queries, sizeof(char), adapt_context->image->width * adapt_context->image->height);
+	png2mesh_build_query_array (&search_queries, adapt_context);
 	for (ilevel = level;ilevel < adapt_context->maxlevel;++ilevel) {
 		t8_forest_set_user_data (forest, (void*)adapt_context);
 		printf ("Starting search on level %i\n",ilevel);
