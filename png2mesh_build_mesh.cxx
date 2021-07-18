@@ -1,7 +1,9 @@
+
 #include <libgen.h>
 #include <sc_options.h>
 #include <t8.h>
 #include <t8_forest.h>
+#include <t8_forest/t8_forest_iterate.h>
 #include <t8_cmesh.h>
 #include <t8_schemes/t8_default_cxx.hxx>
 #include <assert.h>
@@ -12,7 +14,27 @@ typedef struct {
 	int		maxlevel; /* maximum allowed refinement level */
 	int		threshold; /* r+g+b threshold for refinement. 0 <= values <= 3*255 */
 	bool	invert; /* If true, refine bright areas, not dark. */
+	sc_array_t refinement_markers; /* For each element 1 if it should be refined, 0 if not. */
 } png2mesh_adapt_context_t;
+
+int png2mesh_pixel_match (const png2mesh_image_t *image, const int pixel_x, const int pixel_y,
+						  const bool invert, const int dark_threshold)
+{
+	png_byte *pixel = NULL;
+	png2mesh_get_rgba (image, pixel_x, pixel_y, &pixel);
+	int pixel_sum = pixel[0] + pixel[1] + pixel[2];
+	if (!invert) {
+		if (pixel_sum <= dark_threshold) {
+			return 1;
+		}
+	}
+	else {
+		if (pixel_sum >= dark_threshold) {
+			return 1;
+		}
+	}
+	return 0;
+}
 
 int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, const t8_element_t *element, t8_eclass_scheme_c *scheme, 
 									 const double *tree_vertices, const png2mesh_image_t *image,
@@ -22,7 +44,6 @@ int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, co
 	double coords_upright[3];
 	int x_start, x_end, y_start, y_end;
 	int ix, iy;
-	png_byte *pixel = NULL;
 	t8_element_shape_t element_shape;
 	int second_vertex;
 	assert (tree_vertices != NULL);
@@ -55,22 +76,61 @@ int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, co
 	 * if any one is dark. */
 	for (ix = x_start;ix < x_end;++ix) {
 		for (iy = y_start;iy < y_end;++iy) {
-			png2mesh_get_rgba (image, ix, iy, &pixel);
-			int pixel_sum = pixel[0] + pixel[1] + pixel[2];
-			if (!invert) {
-				if (pixel_sum <= dark_threshold) {
-					return 1;
-				}
-			}
-			else {
-				if (pixel_sum >= dark_threshold) {
-					return 1;
-				}
+			if (png2mesh_pixel_match (image, ix, iy, invert, dark_threshold)) {
+				return 1;
 			}
 		}
 	}
 	/* No dark pixels found. */
 	return 0;
+}
+
+int
+png2mesh_search_callback (t8_forest_t forest,
+                                                  t8_locidx_t ltreeid,
+                                                  const t8_element_t *
+                                                  element,
+                                                  const int is_leaf,
+                                                  t8_element_array_t *
+                                                  leaf_elements,
+                                                  t8_locidx_t
+                                                  tree_leaf_index,
+                                                  void *query,
+                                                  size_t query_index)
+{
+	
+	if (query != NULL) {	
+		const png2mesh_adapt_context_t *ctx = (const png2mesh_adapt_context_t*) t8_forest_get_user_data (forest);
+		const int pixel_x = query_index % ctx->image->width;
+		const int pixel_y = query_index / ctx->image->width;
+		const double pixel_scaled_coords[3] = {
+			pixel_x / (double) ctx->image->width,
+			1 - pixel_y / (double) ctx->image->height,
+			0};
+		
+
+		const double *tree_vertices = t8_forest_get_tree_vertices (forest, ltreeid);
+		
+		assert (0 <= pixel_x && pixel_x < ctx->image->width);
+		assert (0 <= pixel_y && pixel_y < ctx->image->height);
+		if (png2mesh_pixel_match (ctx->image, pixel_x, pixel_y, ctx->invert, ctx->threshold)) {
+			/* This pixel is a pixel for which we refine elements. */
+			if (t8_forest_element_point_inside (forest, ltreeid, element, tree_vertices, pixel_scaled_coords, 1e-10)) {
+				/* This pixel is contained in the element */
+				if (is_leaf) {
+					/* We mark this element for later refinement. */
+					const t8_locidx_t element_index = tree_leaf_index + t8_forest_get_tree_element_offset (forest, ltreeid);
+					*(int*)t8_sc_array_index_locidx ((sc_array_t*)&ctx->refinement_markers, element_index) = 1;
+				}
+				return 1;
+			}
+		}
+		/* The pixel does not match or is not contained in the element. */
+		return 0;
+	}
+	else { /* query == NULL */
+		return 1;
+	}
 }
 
 int
@@ -81,16 +141,22 @@ png2mesh_adapt (t8_forest_t forest,
                          t8_eclass_scheme_c * ts,
                          int num_elements, t8_element_t * elements[])
 {
-	const png2mesh_adapt_context_t *ctx = (const png2mesh_adapt_context_t*) t8_forest_get_user_data (forest);
+	const png2mesh_adapt_context_t *ctx = (const png2mesh_adapt_context_t*) t8_forest_get_user_data (forest_from);
 	const png2mesh_image_t *image = ctx->image;
 	const int maxlevel = ctx->maxlevel;
 	const double * tree_vertices = t8_forest_get_tree_vertices (forest_from, which_tree);
+	const t8_locidx_t element_index = lelement_id + t8_forest_get_tree_element_offset (forest_from, which_tree);
 
 	if (ts->t8_element_level (elements[0]) >= maxlevel) {
 		return 0;
 	}
-
+	if (*(int*) t8_sc_array_index_locidx ((sc_array_t*)&ctx->refinement_markers, element_index)) {
+		return 1;
+	}
+	return 0;
+#if 0
 	return png2mesh_element_has_dark_pixel (forest_from, which_tree, elements[0], ts, tree_vertices, image, ctx->threshold, ctx->invert);
+#endif
 }
 
 void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const png2mesh_adapt_context_t *adapt_context)
@@ -99,15 +165,45 @@ void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const
 
 	t8_cmesh_t cmesh = t8_cmesh_new_hypercube (element_class, sc_MPI_COMM_WORLD, 0, 0, 0);
 	t8_forest_t forest = t8_forest_new_uniform (cmesh, scheme, level, 0, comm);
-	t8_forest_t forest_adapt = t8_forest_new_adapt (forest, png2mesh_adapt, 1, 0, (void*) adapt_context);
+	t8_forest_t forest_adapt;// = t8_forest_new_adapt (forest, png2mesh_adapt, 1, 0, (void*) adapt_context);
 	t8_forest_t forest_balance;
+	t8_forest_t forest_partition;
+	sc_array_t search_queries;
 	char vtuname[BUFSIZ];
+	int ilevel;
+
+	sc_array_init ((sc_array_t*)&adapt_context->refinement_markers, sizeof (int));
+	/* We need as many queries as pixels in the image.
+	 * But, we do not need to fill them, since their index is enough information for
+	 * the search callback. */
+	sc_array_init_count (&search_queries, sizeof(char), adapt_context->image->width * adapt_context->image->height);
+	for (ilevel = level;ilevel < adapt_context->maxlevel;++ilevel) {
+		t8_forest_set_user_data (forest, (void*)adapt_context);
+		printf ("Starting search on level %i\n",ilevel);
+		/* Fill adapt markers array */
+		const t8_locidx_t num_elements = t8_forest_get_local_num_elements (forest);
+		t8_locidx_t ielement;
+		sc_array_resize ((sc_array_t*)&adapt_context->refinement_markers, num_elements);
+		for (ielement = 0;ielement < num_elements;++ielement) {
+			/* Set all refinement markers to 0. */
+			*(int*) t8_sc_array_index_locidx ((sc_array_t*)&adapt_context->refinement_markers, ielement) = 0;
+		}
+		/* Search and create the refinement markers. */
+		t8_forest_search (forest, png2mesh_search_callback, png2mesh_search_callback, &search_queries);
+		t8_forest_init (&forest_adapt);
+		t8_forest_set_adapt (forest_adapt, forest, png2mesh_adapt, 0);
+		t8_forest_set_partition (forest_adapt, forest, 0);
+		t8_forest_commit (forest_adapt);
+		forest = forest_adapt;
+	}
+	sc_array_reset ((sc_array_t*)&adapt_context->refinement_markers);
+	sc_array_reset (&search_queries);
 
 	snprintf (vtuname, BUFSIZ, "t8_png_adapt_%s_%s", basename ( (char*)adapt_context->image->filename), t8_eclass_to_string[element_class]);
-	t8_forest_write_vtk (forest_adapt, vtuname);
+	t8_forest_write_vtk (forest, vtuname);
 
 	t8_forest_init (&forest_balance);
-	t8_forest_set_balance (forest_balance, forest_adapt, 0);
+	t8_forest_set_balance (forest_balance, forest, 0);
 	t8_forest_commit (forest_balance);
 
 	snprintf (vtuname, BUFSIZ, "t8_png_balance_%s_%s", basename ((char*)adapt_context->image->filename), t8_eclass_to_string[element_class]);
