@@ -13,7 +13,7 @@ Currently, the created mesh has quad elements. We are working on extending `png2
 
 First of all, using `png2mesh` makes a lot of fun and offers a non-standard way to look at adaptive mesh refinement. 
 
-Additionally, as a researcher working with adaptive meshes i often have to present talks about this topics. More than once i was in a situation where
+Additionally, as a researcher working with adaptive meshes i often have to present talks about this topic. More than once i was in a situation where
 i wanted to generate a pictures of a specific adaptive mesh. This requires hardcoding a refinement rule and comes with a lot of fine-tuning effort to get the result that i want.
 
 With `png2mesh` this task is now as simple as using a drawing program: Open `gimp` or your editor of choice, draw dark pixels where you want your mesh to be refined, parse the image through `png2mesh` and you have your example mesh :)
