@@ -54,8 +54,8 @@ int png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid, co
 	element_shape = scheme->t8_element_shape (element);
 	assert (element_shape == T8_ECLASS_TRIANGLE || element_shape == T8_ECLASS_QUAD);
 	second_vertex = element_shape == T8_ECLASS_QUAD ? 3 : 2;
-	t8_forest_element_coordinate (forest, ltreeid, element, tree_vertices, 0, coords_downleft);
-	t8_forest_element_coordinate (forest, ltreeid, element, tree_vertices, second_vertex, coords_upright);
+	t8_forest_element_coordinate (forest, ltreeid, element, 0, coords_downleft);
+	t8_forest_element_coordinate (forest, ltreeid, element, second_vertex, coords_upright);
 	/* Scale coords by width and height of png */
 	coords_downleft[0] *= image->width;
 	coords_downleft[1] *= image->height;
@@ -117,7 +117,7 @@ png2mesh_search_callback (t8_forest_t forest,
 		assert (0 <= pixel_y && pixel_y < ctx->image->height);
 		if (png2mesh_pixel_match (ctx->image, pixel_x, pixel_y, ctx->invert, ctx->threshold)) {
 			/* This pixel is a pixel for which we refine elements. */
-			if (t8_forest_element_point_inside (forest, ltreeid, element, tree_vertices, pixel_scaled_coords, 1e-10)) {
+			if (t8_forest_element_point_inside (forest, ltreeid, element, pixel_scaled_coords, 1e-10)) {
 				/* This pixel is contained in the element */
 				if (is_leaf) {
 					/* We mark this element for later refinement. */
