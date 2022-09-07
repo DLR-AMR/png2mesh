@@ -3,8 +3,8 @@
 <img src="https://github.com/holke/png2mesh/blob/main/logo/png2mesh_logo_mesh.png?raw=true" width="400" height="400" />
 
 The `png2mesh` library can convert `.png` images into adaptive meshes.
-In order to do so, it uses the ![t8code](https://github.com/holke/t8code/) library to build a mesh and refine it at the positions of dark pixels in the original image.
-The generated output are 2 `.pvtu` files that can be visualized with the ![paraview](https://www.paraview.org/) software. The first `.pvtu` file stores the original mesh, the second a 2:1 balanced version of that mesh.
+In order to do so, it uses the [t8code](https://github.com/holke/t8code/) library to build a mesh and refine it at the positions of dark pixels in the original image.
+The generated output are 2 `.pvtu` files that can be visualized with the [paraview](https://www.paraview.org/) software. The first `.pvtu` file stores the original mesh, the second a 2:1 balanced version of that mesh.
 
 
 Currently, the created mesh has quad elements. We are working on extending `png2mesh` to triangle elements.
@@ -13,14 +13,14 @@ Currently, the created mesh has quad elements. We are working on extending `png2
 
 First of all, using `png2mesh` makes a lot of fun and offers a non-standard way to look at adaptive mesh refinement. 
 
-Additionally, as a researcher working with adaptive meshes i often have to present talks about this topics. More than once i was in a situation where
+Additionally, as a researcher working with adaptive meshes i often have to present talks about this topic. More than once i was in a situation where
 i wanted to generate a pictures of a specific adaptive mesh. This requires hardcoding a refinement rule and comes with a lot of fine-tuning effort to get the result that i want.
 
 With `png2mesh` this task is now as simple as using a drawing program: Open `gimp` or your editor of choice, draw dark pixels where you want your mesh to be refined, parse the image through `png2mesh` and you have your example mesh :)
 
 # requirements
 
-- t8code (develop branch); See ![t8code](https://github.com/holke/t8code/tree/develop)
+- t8code (develop branch); See [t8code](https://github.com/holke/t8code/tree/develop)
 - p4est (usually installed with t8code)
 - sc    (usually installed with t8code)
 - libpng
@@ -79,7 +79,7 @@ Use the program as `png2mesh_demo [OPTIONS]`, where OPTIONS can be any of the fo
 
 # citing
 
-If you use `png2mesh` or pictures generated from it, please cite this github page with Johannes Holke as the author. We would apprechiate a citation of ![t8code](https://github.com/holke/t8code/) as well.
+If you use `png2mesh` or pictures generated from it, please cite this github page with Johannes Holke as the author. We would apprechiate a citation of [t8code](https://github.com/holke/t8code/) as well.
 
 <img src="https://github.com/holke/png2mesh/blob/main/logo/smiley_mesh.png?raw=true" width="400" height="400" />
 
