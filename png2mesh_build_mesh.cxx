@@ -137,11 +137,13 @@ png2mesh_search_callback (t8_forest_t forest,
 
 int
 png2mesh_adapt (t8_forest_t forest,
-                         t8_forest_t forest_from,
-                         t8_locidx_t which_tree,
-                         t8_locidx_t lelement_id,
-                         t8_eclass_scheme_c * ts,
-                         int num_elements, t8_element_t * elements[])
+				t8_forest_t forest_from,
+				t8_locidx_t which_tree,
+				t8_locidx_t lelement_id,
+				t8_eclass_scheme_c * ts,
+				const int is_family,
+				const int num_elements, 
+				t8_element_t * elements[])
 {
 	const png2mesh_adapt_context_t *ctx = (const png2mesh_adapt_context_t*) t8_forest_get_user_data (forest_from);
 	const png2mesh_image_t *image = ctx->image;
