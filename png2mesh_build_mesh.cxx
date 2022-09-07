@@ -150,15 +150,16 @@ png2mesh_adapt (t8_forest_t forest,
 	const t8_locidx_t element_index = lelement_id + t8_forest_get_tree_element_offset (forest_from, which_tree);
 
 	if (ts->t8_element_level (elements[0]) >= maxlevel) {
+		/* We do not refine if the element's level exceeds the provided maximum level */
 		return 0;
 	}
-	if (*(int*) t8_sc_array_index_locidx ((sc_array_t*)&ctx->refinement_markers, element_index)) {
+	/* Check whether this element is marked for refinement and if so,
+	 * refine it. */
+	const int element_marker = *(int*) t8_sc_array_index_locidx ((sc_array_t*)&ctx->refinement_markers, element_index);
+	if (element_marker) {
 		return 1;
 	}
 	return 0;
-#if 0
-	return png2mesh_element_has_dark_pixel (forest_from, which_tree, elements[0], ts, tree_vertices, image, ctx->threshold, ctx->invert);
-#endif
 }
 
 /* Build the array of queries.
