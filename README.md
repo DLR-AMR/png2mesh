@@ -20,9 +20,9 @@ With `png2mesh` this task is now as simple as using a drawing program: Open `gim
 
 # requirements
 
-- t8code; See [t8code](https://github.com/dlr-amr/t8code/)
-- p4est (usually installed with t8code)
-- sc    (usually installed with t8code)
+- [t8code](https://github.com/dlr-amr/t8code/)
+- [p4est](https://github.com/cburstedde/p4est) (usually installed with t8code)
+- [sc](https://github.com/cburstedde/libsc)    (usually installed with t8code)
 - libpng
 - MPI
 
