@@ -7,6 +7,8 @@
 #include <t8_cmesh.h>
 #include <t8_cmesh/t8_cmesh_examples.h>
 #include <t8_schemes/t8_default/t8_default_cxx.hxx>
+#include <t8_transition_quad_cxx.hxx>
+#include <t8_transition_cxx.hxx>
 #include <assert.h>
 #include "png2mesh_readpng.h"
 
@@ -220,12 +222,14 @@ png2mesh_build_query_array (sc_array_t *queries,
  * element_choice: 0 - quad
  *				   1 - triangle
  *				   2 - quad/tri hybrid
+ *				   3 - quad without hanging nodes
  */
 void
 build_forest (int level, int element_choice, sc_MPI_Comm comm,
               const png2mesh_adapt_context_t * adapt_context)
 {
-  t8_scheme_cxx_t    *scheme = t8_scheme_new_default_cxx ();
+  t8_scheme_cxx_t    *scheme = element_choice != 3 ?
+    t8_scheme_new_default_cxx () : t8_scheme_new_subelement_cxx ();
 
   t8_cmesh_t          cmesh;
   char                element_string[BUFSIZ];
@@ -241,9 +245,11 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
                 t8_eclass_to_string[element_class]);
   }
   else {
-    T8_ASSERT (element_choice == 3);
+    T8_ASSERT (element_choice == 2 || element_choice == 3);
     cmesh = t8_cmesh_new_periodic_hybrid (comm);
-    sreturn = snprintf (element_string, BUFSIZ, "quadtrihybrid");
+    sreturn =
+      snprintf (element_string, BUFSIZ,
+                (element_choice == 2) ? "quadtrihybrid" : "quadnohanging");
   }
   if (sreturn >= BUFSIZ) {
     /* String was truncated. */
@@ -284,6 +290,9 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     t8_forest_init (&forest_adapt);
     t8_forest_set_adapt (forest_adapt, forest, png2mesh_adapt, 0);
     t8_forest_set_partition (forest_adapt, forest, 0);
+    if (element_choice == 3) {
+      t8_forest_set_transition (forest_adapt, forest);
+    }
     t8_forest_commit (forest_adapt);
     forest = forest_adapt;
   }
@@ -375,7 +384,8 @@ main (int argc, char *argv[])
                       "The shape of elements to use:\n"
                       "\t\t\t 0: quad\n"
                       "\t\t\t 1: triangle\n"
-                      "\t\t\t 2: quad/triangle hybrid");
+                      "\t\t\t 2: quad/triangle hybrid\n"
+                      "\t\t\t 3: quad with hanging nodes resolved");
 
   parsed = sc_options_parse (-1, SC_LP_ERROR, opt, argc, argv);
   if (helpme) {
@@ -384,7 +394,7 @@ main (int argc, char *argv[])
     sc_options_print_usage (t8_get_package_id (), SC_LP_ERROR, opt, NULL);
   }
   else if (parsed >= 0 && 0 <= level && strcmp (filename, "") &&
-           (element_choice >= 0 && element_choice <= 2)
+           (element_choice >= 0 && element_choice <= 3)
            && level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
     pngimage = png2mesh_read_png (filename);
     invert = invert_int != 0;
