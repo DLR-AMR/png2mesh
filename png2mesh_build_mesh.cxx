@@ -216,6 +216,11 @@ png2mesh_build_query_array (sc_array_t *queries,
           num_pixels);
 }
 
+/*
+ * element_choice: 0 - quad
+ *				   1 - triangle
+ *				   2 - quad/tri hybrid
+ */
 void
 build_forest (int level, int element_choice, sc_MPI_Comm comm,
               const png2mesh_adapt_context_t * adapt_context)
