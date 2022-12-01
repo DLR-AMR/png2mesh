@@ -367,13 +367,11 @@ main (int argc, char *argv[])
                       "How sensitive the refinement reacts to RGB values.\n"
                       "\t\t\t\t\tThe mesh is refined in areas with red + green + blue < threshold.\n"
                       "\t\t\t\t\tValues must be between 0 and 3*255.");
-#if 1                           /* Currently deactived. Reactive when triangles are working. */
   sc_options_add_int (opt, 'e', "element_shape", &element_choice, 0,
                       "The shape of elements to use:\n"
                       "\t\t\t 0: quad\n"
                       "\t\t\t 1: triangle\n"
                       "\t\t\t 2: quad/triangle hybrid");
-#endif
 
   parsed = sc_options_parse (-1, SC_LP_ERROR, opt, argc, argv);
   if (helpme) {
