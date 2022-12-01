@@ -251,7 +251,6 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
      * do not check the return value of snprintf. */
     t8_debugf ("Warning: Truncated output string to '%s'\n", element_string);
   }
-  //t8_cmesh_t cmesh = t8_cmesh_new_periodic_hybrid (sc_MPI_COMM_WORLD);
   t8_forest_t         forest =
     t8_forest_new_uniform (cmesh, scheme, level, 0, comm);
   t8_forest_t         forest_adapt;     // = t8_forest_new_adapt (forest, png2mesh_adapt, 1, 0, (void*) adapt_context);
