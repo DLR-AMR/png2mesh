@@ -137,8 +137,8 @@ png2mesh_search_callback (t8_forest_t forest,
           const t8_locidx_t   element_index =
             tree_leaf_index + t8_forest_get_tree_element_offset (forest,
                                                                  ltreeid);
-          *(int *) t8_sc_array_index_locidx ((sc_array_t *) &ctx->
-                                             refinement_markers,
+          *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+                                             &ctx->refinement_markers,
                                              element_index) = 1;
         }
         return 1;
@@ -177,8 +177,9 @@ png2mesh_adapt (t8_forest_t forest,
   /* Check whether this element is marked for refinement and if so,
    * refine it. */
   const int           element_marker =
-    *(int *) t8_sc_array_index_locidx ((sc_array_t *) &ctx->
-                                       refinement_markers, element_index);
+    *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+                                       &ctx->refinement_markers,
+                                       element_index);
   if (element_marker) {
     return 1;
   }
@@ -269,8 +270,9 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
                      num_elements);
     for (ielement = 0; ielement < num_elements; ++ielement) {
       /* Set all refinement markers to 0. */
-      *(int *) t8_sc_array_index_locidx ((sc_array_t *) &adapt_context->
-                                         refinement_markers, ielement) = 0;
+      *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+                                         &adapt_context->refinement_markers,
+                                         ielement) = 0;
     }
     /* Search and create the refinement markers. */
     t8_forest_search (forest, png2mesh_search_callback,
