@@ -190,11 +190,32 @@ void png2mesh_build_query_array (sc_array_t *queries, const png2mesh_adapt_conte
 	printf ("Build search array with %zd pixels (of %i)\n", queries->elem_count, num_pixels);
 }
 
-void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const png2mesh_adapt_context_t *adapt_context)
+void build_forest (int level, int element_choice, sc_MPI_Comm comm, const png2mesh_adapt_context_t *adapt_context)
 {
 	t8_scheme_cxx_t *scheme = t8_scheme_new_default_cxx ();
 
-	t8_cmesh_t cmesh = t8_cmesh_new_hypercube (element_class, sc_MPI_COMM_WORLD, 0, 0, 0);
+	
+	t8_cmesh_t cmesh;
+	char element_string[BUFSIZ];
+	int sreturn;
+	if (element_choice < 2) {
+		/* Build quad or triangle square */
+		const t8_eclass_t element_class = element_choice == 0 ? T8_ECLASS_QUAD : T8_ECLASS_TRIANGLE;
+		cmesh = t8_cmesh_new_hypercube (element_class, sc_MPI_COMM_WORLD, 0, 0, 0);
+		sreturn = snprintf (element_string, BUFSIZ, "%s", t8_eclass_to_string[element_class]);
+	} 
+	else {
+		T8_ASSERT (element_choice == 3);
+		cmesh = t8_cmesh_new_periodic_hybrid (comm);
+		sreturn = snprintf (element_string, BUFSIZ, "quadtrihybrid");
+	}
+	if (sreturn >= BUFSIZ) {
+		/* String was truncated. */
+		/* Note: gcc >= 7.1 prints a warning if we 
+		 * do not check the return value of snprintf. */
+    	t8_debugf ("Warning: Truncated output string to '%s'\n", element_string);
+  	}
+	//t8_cmesh_t cmesh = t8_cmesh_new_periodic_hybrid (sc_MPI_COMM_WORLD);
 	t8_forest_t forest = t8_forest_new_uniform (cmesh, scheme, level, 0, comm);
 	t8_forest_t forest_adapt;// = t8_forest_new_adapt (forest, png2mesh_adapt, 1, 0, (void*) adapt_context);
 	t8_forest_t forest_balance;
@@ -227,14 +248,26 @@ void build_forest (int level, t8_eclass_t element_class, sc_MPI_Comm comm, const
 	sc_array_reset ((sc_array_t*)&adapt_context->refinement_markers);
 	sc_array_reset (&search_queries);
 
-	snprintf (vtuname, BUFSIZ, "t8_png_adapt_%s_%s", basename ( (char*)adapt_context->image->filename), t8_eclass_to_string[element_class]);
+	sreturn = snprintf (vtuname, BUFSIZ, "t8_png_adapt_%s_%s_t%i", basename ( (char*)adapt_context->image->filename), element_string, adapt_context->threshold);
+	if (sreturn >= BUFSIZ) {
+		/* String was truncated. */
+		/* Note: gcc >= 7.1 prints a warning if we 
+		 * do not check the return value of snprintf. */
+    	t8_debugf ("Warning: Truncated output string to '%s'\n", vtuname);
+  	}
 	t8_forest_write_vtk (forest, vtuname);
 
 	t8_forest_init (&forest_balance);
 	t8_forest_set_balance (forest_balance, forest, 0);
 	t8_forest_commit (forest_balance);
 
-	snprintf (vtuname, BUFSIZ, "t8_png_balance_%s_%s", basename ((char*)adapt_context->image->filename), t8_eclass_to_string[element_class]);
+	sreturn = snprintf (vtuname, BUFSIZ, "t8_png_balance_%s_%s_t%i", basename ((char*)adapt_context->image->filename), element_string, adapt_context->threshold);
+	if (sreturn >= BUFSIZ) {
+		/* String was truncated. */
+		/* Note: gcc >= 7.1 prints a warning if we 
+		 * do not check the return value of snprintf. */
+    	t8_debugf ("Warning: Truncated output string to '%s'\n", vtuname);
+  	}
 	t8_forest_write_vtk (forest_balance, vtuname);
 
 	printf ("\nSuccessfully build AMR mesh for picture %s.\n", adapt_context->image->filename);
@@ -251,10 +284,9 @@ int main (int argc, char *argv[])
 	int helpme = 0;
 	int parsed = 0;
 	int threshold;
-	int element_shape = 0;
+	int element_choice = 0;
 	int invert_int = 0;
 	bool invert = false;
-	t8_eclass_t element_class;
 	png2mesh_image_t *pngimage;
 	png2mesh_adapt_context_t adapt_context;
 	sc_options_t *opt;
@@ -266,6 +298,7 @@ int main (int argc, char *argv[])
 	mpiret = sc_MPI_Init (&argc, &argv);
 	/* Error check the MPI return value. */
 	SC_CHECK_MPI (mpiret);
+	
 	
 	/* Initialize the sc library, has to happen before we initialize t8code. */
 	sc_init (sc_MPI_COMM_WORLD, 1, 1, NULL, SC_LP_ESSENTIAL);
@@ -289,9 +322,12 @@ int main (int argc, char *argv[])
 						"How sensitive the refinement reacts to RGB values.\n"
 						"\t\t\t\t\tThe mesh is refined in areas with red + green + blue < threshold.\n"
 						"\t\t\t\t\tValues must be between 0 and 3*255.");
-#if 0 /* Currently deactived. Reactive when triangles are working. */
-	sc_options_add_int (opt, 'e', "element_shape", &element_shape, 0,
-						"The shape of elements to use. 0: quad, 1: triangle");
+#if 1 /* Currently deactived. Reactive when triangles are working. */
+	sc_options_add_int (opt, 'e', "element_shape", &element_choice, 0,
+						"The shape of elements to use:\n"
+						"\t\t\t 0: quad\n"
+						"\t\t\t 1: triangle\n"
+						"\t\t\t 2: quad/triangle hybrid");
 #endif
 
 	parsed =
@@ -302,17 +338,16 @@ int main (int argc, char *argv[])
 		sc_options_print_usage (t8_get_package_id (), SC_LP_ERROR, opt, NULL);
 	}
 	else if (parsed >= 0 && 0 <= level && strcmp (filename, "") && 
-	    (element_shape == 0 || element_shape == 1)
+	    (element_choice >= 0 && element_choice <= 2)
 		&& level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
 		pngimage = png2mesh_read_png (filename);
-		element_class = element_shape == 0 ? T8_ECLASS_QUAD : T8_ECLASS_TRIANGLE;
 		invert = invert_int != 0;
 		if (pngimage != NULL) {
 			adapt_context.image = pngimage;
 			adapt_context.invert = invert;
 			adapt_context.maxlevel = maxlevel;
 			adapt_context.threshold = threshold;
-			build_forest (level, element_class, sc_MPI_COMM_WORLD, &adapt_context);
+			build_forest (level, element_choice, sc_MPI_COMM_WORLD, &adapt_context);
 			png2mesh_image_cleanup (pngimage);
 		}
 	}
