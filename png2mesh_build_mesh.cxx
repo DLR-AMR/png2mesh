@@ -244,12 +244,16 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
       snprintf (element_string, BUFSIZ, "%s",
                 t8_eclass_to_string[element_class]);
   }
-  else {
-    T8_ASSERT (element_choice == 2 || element_choice == 3);
+  else if (element_choice == 2) {
     cmesh = t8_cmesh_new_periodic_hybrid (comm);
     sreturn =
-      snprintf (element_string, BUFSIZ,
-                (element_choice == 2) ? "quadtrihybrid" : "quadnohanging");
+      snprintf (element_string, BUFSIZ, "quadtrihybrid");
+  }
+  else {
+	  T8_ASSERT (element_choice == 3);
+	  cmesh = t8_cmesh_new_hypercube (T8_ECLASS_QUAD,sc_MPI_COMM_WORLD, 0, 0, 0);
+    sreturn =
+      snprintf (element_string, BUFSIZ, "quadnohanging");
   }
   if (sreturn >= BUFSIZ) {
     /* String was truncated. */
@@ -291,6 +295,7 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     t8_forest_set_adapt (forest_adapt, forest, png2mesh_adapt, 0);
     t8_forest_set_partition (forest_adapt, forest, 0);
     if (element_choice == 3) {
+	  t8_forest_set_balance (forest_adapt, forest, 0);
       t8_forest_set_transition (forest_adapt, forest);
     }
     t8_forest_commit (forest_adapt);
