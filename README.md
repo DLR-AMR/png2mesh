@@ -7,14 +7,14 @@ In order to do so, it uses the [t8code](https://github.com/dlr-amr/t8code/) libr
 The generated output are 2 `.pvtu` files that can be visualized with the [paraview](https://www.paraview.org/) software. The first `.pvtu` file stores the original mesh, the second a 2:1 balanced version of that mesh.
 
 
-Currently, the created mesh has quad elements. We are working on extending `png2mesh` to triangle elements.
+You can choose between a quad mesh, triangle mesh or a hybrid mesh containing both shapes.
 
 # but, why?
 
 First of all, using `png2mesh` makes a lot of fun and offers a non-standard way to look at adaptive mesh refinement. 
 
-Additionally, as a researcher working with adaptive meshes i often have to present talks about this topic. More than once i was in a situation where
-i wanted to generate a pictures of a specific adaptive mesh. This requires hardcoding a refinement rule and comes with a lot of fine-tuning effort to get the result that i want.
+Additionally, as researchers working with adaptive meshes we often have to present talks about this topic. More than once we were in a situation where
+we wanted to generate a pictures of a specific adaptive mesh. Usually, this requires hardcoding a refinement rule and comes with a lot of fine-tuning effort to get the desired result.
 
 With `png2mesh` this task is now as simple as using a drawing program: Open `gimp` or your editor of choice, draw dark pixels where you want your mesh to be refined, parse the image through `png2mesh` and you have your example mesh :)
 
