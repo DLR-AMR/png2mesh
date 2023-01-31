@@ -186,6 +186,36 @@ png2mesh_adapt (t8_forest_t forest,
   return 0;
 }
 
+int
+png2mesh_element_delete (t8_forest_t forest,
+                t8_forest_t forest_from,
+                t8_locidx_t which_tree,
+                t8_locidx_t lelement_id,
+                t8_eclass_scheme_c *ts,
+                const int is_family,
+                const int num_elements, t8_element_t *elements[])
+{
+  const png2mesh_adapt_context_t *ctx =
+    (const png2mesh_adapt_context_t *) t8_forest_get_user_data (forest_from);
+  const png2mesh_image_t *image = ctx->image;
+  const int           maxlevel = ctx->maxlevel;
+  const double       *tree_vertices =
+    t8_forest_get_tree_vertices (forest_from, which_tree);
+  const t8_locidx_t   element_index =
+    lelement_id + t8_forest_get_tree_element_offset (forest_from, which_tree);
+
+  /* Check whether this element is marked for refinement and if so,
+   * refine it. */
+  const int           element_marker =
+    *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+                                       &ctx->refinement_markers,
+                                       element_index);
+  if (element_marker) {
+    return -2;
+  }
+  return 0;
+}
+
 /* Build the array of queries.
  * This array contains all pixels that match the condition.
  * The pixels are encoded as an integer p with
@@ -287,6 +317,27 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     t8_forest_commit (forest_adapt);
     forest = forest_adapt;
   }
+  t8_forest_set_user_data (forest, (void *) adapt_context);
+    /* Fill adapt markers array */
+    const t8_locidx_t   num_elements =
+      t8_forest_get_local_num_elements (forest);
+    t8_locidx_t         ielement;
+    sc_array_resize ((sc_array_t *) &adapt_context->refinement_markers,
+                     num_elements);
+    for (ielement = 0; ielement < num_elements; ++ielement) {
+      /* Set all refinement markers to 0. */
+      *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+                                         &adapt_context->refinement_markers,
+                                         ielement) = 0;
+    }
+  t8_forest_search (forest, png2mesh_search_callback,
+                      png2mesh_search_callback, &search_queries);
+  printf("Delete elements\n");
+  t8_forest_init (&forest_adapt);
+  t8_forest_set_adapt(forest_adapt, forest, png2mesh_element_delete, 0);
+  t8_forest_commit(forest_adapt);
+  forest = forest_adapt;
+
   sc_array_reset ((sc_array_t *) &adapt_context->refinement_markers);
   sc_array_reset (&search_queries);
 
