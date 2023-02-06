@@ -7,7 +7,7 @@
 #include <t8_cmesh.h>
 #include <t8_cmesh/t8_cmesh_examples.h>
 #include <t8_schemes/t8_default/t8_default_cxx.hxx>
-#include <t8_transition_quad_cxx.hxx>
+#include <t8_transition_conformal_quad_cxx.hxx>
 #include <t8_transition_cxx.hxx>
 #include <assert.h>
 #include "png2mesh_readpng.h"
@@ -256,10 +256,10 @@ png2mesh_build_query_array (sc_array_t *queries,
  */
 void
 build_forest (int level, int element_choice, sc_MPI_Comm comm,
-              png2mesh_adapt_context_t * adapt_context)
+              png2mesh_adapt_context_t * adapt_context, int delete_elem)
 {
   t8_scheme_cxx_t    *scheme = element_choice != 3 ?
-    t8_scheme_new_default_cxx () : t8_scheme_new_subelement_cxx ();
+    t8_scheme_new_default_cxx () : t8_scheme_new_transition_cxx ();
 
   t8_cmesh_t          cmesh;
   char                element_string[BUFSIZ];
@@ -326,13 +326,13 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     t8_forest_set_partition (forest_adapt, forest, 0);
     if (element_choice == 3) {
 	  t8_forest_set_balance (forest_adapt, forest, 0);
-      t8_forest_set_transition (forest_adapt, forest);
+      t8_forest_set_transition (forest_adapt, forest, 1);
     }
     t8_forest_commit (forest_adapt);
     forest = forest_adapt;
   }
-  //adapt_context->invert = !adapt_context->invert;
-  t8_forest_set_user_data (forest, (void *) adapt_context);
+  if(delete_elem == 1){
+    t8_forest_set_user_data (forest, (void *) adapt_context);
     /* Fill adapt markers array */
     const t8_locidx_t   num_elements =
       t8_forest_get_local_num_elements (forest);
@@ -345,13 +345,18 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
                                          &adapt_context->refinement_markers,
                                          ielement) = 0;
     }
-  t8_forest_search (forest, png2mesh_search_callback,
-                      png2mesh_search_callback, &search_queries);
-  printf("Delete elements\n");
-  t8_forest_init (&forest_adapt);
-  t8_forest_set_adapt(forest_adapt, forest, png2mesh_element_delete, 0);
-  t8_forest_commit(forest_adapt);
-  forest = forest_adapt;
+    t8_forest_search (forest, png2mesh_search_callback,
+                        png2mesh_search_callback, &search_queries);
+    printf("Delete elements\n");
+    t8_forest_init (&forest_adapt);
+    if(element_choice == 3){
+      t8_forest_set_transition(forest_adapt, forest, 1);
+    }
+    t8_forest_set_adapt(forest_adapt, forest, png2mesh_element_delete, 0);
+    t8_forest_commit(forest_adapt);
+    forest = forest_adapt;
+  }
+  
 
   sc_array_reset ((sc_array_t *) &adapt_context->refinement_markers);
   sc_array_reset (&search_queries);
@@ -403,6 +408,7 @@ main (int argc, char *argv[])
   int                 threshold;
   int                 element_choice = 0;
   int                 invert_int = 0;
+  int                 delete_elem = 0;
   bool                invert = false;
   png2mesh_image_t   *pngimage;
   png2mesh_adapt_context_t adapt_context;
@@ -437,6 +443,7 @@ main (int argc, char *argv[])
                       "How sensitive the refinement reacts to RGB values.\n"
                       "\t\t\t\t\tThe mesh is refined in areas with red + green + blue < threshold.\n"
                       "\t\t\t\t\tValues must be between 0 and 3*255.");
+  sc_options_add_switch (opt, 'd', "delete", &delete_elem, "If set to 1, delete elements with red + green + blue < threshold.\n");
   sc_options_add_int (opt, 'e', "element_shape", &element_choice, 0,
                       "The shape of elements to use:\n"
                       "\t\t\t 0: quad\n"
@@ -460,7 +467,7 @@ main (int argc, char *argv[])
       adapt_context.invert = invert;
       adapt_context.maxlevel = maxlevel;
       adapt_context.threshold = threshold;
-      build_forest (level, element_choice, sc_MPI_COMM_WORLD, &adapt_context);
+      build_forest (level, element_choice, sc_MPI_COMM_WORLD, &adapt_context, delete_elem);
       png2mesh_image_cleanup (pngimage);
     }
   }
