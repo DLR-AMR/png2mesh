@@ -253,7 +253,7 @@ png2mesh_build_query_array (sc_array_t *queries,
  */
 void
 build_forest (int level, int element_choice, sc_MPI_Comm comm,
-              const png2mesh_adapt_context_t * adapt_context)
+              png2mesh_adapt_context_t * adapt_context)
 {
   t8_scheme_cxx_t    *scheme = t8_scheme_new_default_cxx ();
 
@@ -317,6 +317,7 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     t8_forest_commit (forest_adapt);
     forest = forest_adapt;
   }
+  //adapt_context->invert = !adapt_context->invert;
   t8_forest_set_user_data (forest, (void *) adapt_context);
     /* Fill adapt markers array */
     const t8_locidx_t   num_elements =
