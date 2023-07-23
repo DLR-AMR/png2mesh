@@ -14,7 +14,7 @@ set(CMAKE_CXX_COMPILER mpicxx)
 
 # Add t8code include directories
 INCLUDE_DIRECTORIES($ENV{T8_INCLUDE})
-INCLUDE_DIRECTORIES($ENV{T8_INCLUDE}/src)
+INCLUDE_DIRECTORIES($ENV{T8_INCLUDE}/t8_cmesh)
 # Add t8code library directories
 LINK_DIRECTORIES($ENV{T8_LIB})
 
