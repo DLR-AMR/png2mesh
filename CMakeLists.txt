@@ -18,6 +18,13 @@ INCLUDE_DIRECTORIES($ENV{T8_INCLUDE}/t8_cmesh)
 # Add t8code library directories
 LINK_DIRECTORIES($ENV{T8_LIB})
 
+# Using PNG_INCLUDE and PNG_LIB is only necessary when
+# the compiler does not find the PNG library.
+# Add png include directories
+INCLUDE_DIRECTORIES($ENV{PNG_INCLUDE})
+# Add png library directories
+LINK_DIRECTORIES($ENV{PNG_LIB})
+
 
 # Create a library called "png2mesh" which includes the source files.
 # The extension is already found. Any number of sources could be listed here.
