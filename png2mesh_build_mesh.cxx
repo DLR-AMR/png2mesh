@@ -411,7 +411,7 @@ main (int argc, char *argv[])
                       "\t\t\t\t\tValues must be between 0 and 3*255. Default 100.");
   sc_options_add_int (opt, 'a', "alpha-threshold", &alpha_threshold, 0,
                       "How sensitive the removal reacts to alpha values.\n"
-                      "\t\t\t\t\tThe mesh is removed in areas with alpha < alpha-threshold.\n"
+                      "\t\t\t\t\tThe mesh is removed in areas with alpha <= alpha-threshold.\n"
                       "\t\t\t\t\tValues must be between 0 and 255. Default 0.");
   sc_options_add_int (opt, 'e', "element_shape", &element_choice, 0,
                       "The shape of elements to use:\n"
