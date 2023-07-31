@@ -15,31 +15,50 @@ typedef struct
   const png2mesh_image_t *image;
   int                 maxlevel; /* maximum allowed refinement level */
   int                 threshold;        /* r+g+b threshold for refinement. 0 <= values <= 3*255 */
+  int                 alpha_threshold;        /* Alpha channel threshold for removal. 0 <= values <= 255 */
   bool                invert;   /* If true, refine bright areas, not dark. */
   sc_array_t          refinement_markers;       /* For each element 1 if it should be refined, 0 if not. */
 } png2mesh_adapt_context_t;
 
-int
+typedef enum {
+  PNG2MESH_DONOTHING,
+  PNG2MESH_REFINE,
+  PNG2MESH_COARSEN,
+  PNG2MESH_REMOVE,
+} png2mesh_adapt_value_t;
+
+png2mesh_adapt_value_t
 png2mesh_pixel_match (const png2mesh_image_t * image, const int pixel_x,
                       const int pixel_y, const bool invert,
-                      const int dark_threshold)
+                      const int dark_threshold,
+                      const int alpha_threshold)
 {
   png_byte           *pixel = NULL;
   png2mesh_get_rgba (image, pixel_x, pixel_y, &pixel);
-  int                 pixel_sum = pixel[0] + pixel[1] + pixel[2];
+  const int           pixel_sum = pixel[0] + pixel[1] + pixel[2];
+  const int           have_alpha = image->num_values_per_pixel >= 4;
+  const int           alpha_value = have_alpha ? pixel[3] : -1;
+
+ // printf ("Pixel %i %i: sum = %i alpha = %i\n", pixel_x, pixel_y, pixel_sum, alpha_value);
+  /* If the alpha value is larger than the threshold, this pixeld is to be removed. */
+  if (have_alpha && alpha_value <= alpha_threshold) {
+    return PNG2MESH_REMOVE;
+  }
+  /* Check whether the color value is above (below if inverted) the threshold. */
   if (!invert) {
     if (pixel_sum <= dark_threshold) {
-      return 1;
+      return PNG2MESH_REFINE;
     }
   }
   else {
     if (pixel_sum >= dark_threshold) {
-      return 1;
+      return PNG2MESH_REFINE;
     }
   }
-  return 0;
+  return PNG2MESH_DONOTHING;
 }
 
+#if 0
 int
 png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid,
                                  const t8_element_t *element,
@@ -98,6 +117,7 @@ png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid,
   /* No dark pixels found. */
   return 0;
 }
+#endif
 
 int
 png2mesh_search_callback (t8_forest_t forest,
@@ -126,20 +146,31 @@ png2mesh_search_callback (t8_forest_t forest,
 
     assert (0 <= pixel_x && pixel_x < ctx->image->width);
     assert (0 <= pixel_y && pixel_y < ctx->image->height);
-    if (png2mesh_pixel_match
-        (ctx->image, pixel_x, pixel_y, ctx->invert, ctx->threshold)) {
+    
+    const png2mesh_adapt_value_t pixel_adapt_value = png2mesh_pixel_match
+        (ctx->image, pixel_x, pixel_y, ctx->invert, ctx->threshold, ctx->alpha_threshold);
+    if (pixel_adapt_value == PNG2MESH_REFINE ||
+        pixel_adapt_value == PNG2MESH_REMOVE) {
       /* This pixel is a pixel for which we refine elements. */
       if (t8_forest_element_point_inside
           (forest, ltreeid, element, pixel_scaled_coords, 1e-10)) {
         /* This pixel is contained in the element */
         if (is_leaf) {
-          /* We mark this element for later refinement. */
+          t8_debugf ("Mark element for %s\n", pixel_adapt_value == PNG2MESH_REFINE ? "Refine" : "remove");
+          /* We mark this element for later refinement or removal. */
           const t8_locidx_t   element_index =
             tree_leaf_index + t8_forest_get_tree_element_offset (forest,
                                                                  ltreeid);
-          *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+          /* Get existing refinement marker. This may have been set by a previous query. */
+          png2mesh_adapt_value_t * refinement_marker = (png2mesh_adapt_value_t *) t8_sc_array_index_locidx ((sc_array_t *)
                                              &ctx->refinement_markers,
-                                             element_index) = 1;
+                                             element_index);
+          /* If the marker was set to refine, then do not change it, since some query pixel
+           * triggered refinement.
+           * Otherwise, set it to REFINE or REMOVE depending on the pixel. */
+          if (*refinement_marker != PNG2MESH_REFINE) {
+            *refinement_marker = pixel_adapt_value;
+          }
         }
         return 1;
       }
@@ -176,12 +207,15 @@ png2mesh_adapt (t8_forest_t forest,
   }
   /* Check whether this element is marked for refinement and if so,
    * refine it. */
-  const int           element_marker =
-    *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+  const png2mesh_adapt_value_t           element_marker =
+    *(png2mesh_adapt_value_t *) t8_sc_array_index_locidx ((sc_array_t *)
                                        &ctx->refinement_markers,
                                        element_index);
-  if (element_marker) {
+  if (element_marker == PNG2MESH_REFINE) {
     return 1;
+  }
+  if (element_marker == PNG2MESH_REMOVE) {
+    return -2;
   }
   return 0;
 }
@@ -206,9 +240,12 @@ png2mesh_build_query_array (sc_array_t *queries,
     const int           x = ipixel % image->width;
     const int           y = ipixel / image->width;
 
-    if (png2mesh_pixel_match
-        (image, x, y, adapt_context->invert, adapt_context->threshold)) {
-      /* This pixel matches, we insert it as query */
+    const png2mesh_adapt_value_t pixel_adapt_value = png2mesh_pixel_match
+        (image, x, y, adapt_context->invert, adapt_context->threshold,
+        adapt_context->alpha_threshold);
+    if (pixel_adapt_value == PNG2MESH_REFINE ||
+        pixel_adapt_value == PNG2MESH_REMOVE) {
+      /* This pixel triggers refinement or removal, we insert it as query */
       *(int *) sc_array_push (queries) = ipixel;
     }
   }
@@ -273,10 +310,10 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     sc_array_resize ((sc_array_t *) &adapt_context->refinement_markers,
                      num_elements);
     for (ielement = 0; ielement < num_elements; ++ielement) {
-      /* Set all refinement markers to 0. */
-      *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+      /* Set all refinement markers to do nothing. */
+      *(png2mesh_adapt_value_t *) t8_sc_array_index_locidx ((sc_array_t *)
                                          &adapt_context->refinement_markers,
-                                         ielement) = 0;
+                                         ielement) = PNG2MESH_DONOTHING;
     }
     /* Search and create the refinement markers. */
     t8_forest_search (forest, png2mesh_search_callback,
@@ -335,6 +372,7 @@ main (int argc, char *argv[])
   int                 helpme = 0;
   int                 parsed = 0;
   int                 threshold;
+  int                 alpha_threshold;
   int                 element_choice = 0;
   int                 invert_int = 0;
   bool                invert = false;
@@ -344,7 +382,7 @@ main (int argc, char *argv[])
   const char         *filename;
   const char         *help =
     "The program reads a png file and builds an adaptive mesh from it.\n"
-    " The mesh is refined in the dark regions of the image.";
+    " The mesh is refined in the dark regions of the image and removed in transparent regions.";
 
   /* Initialize MPI. This has to happen before we initialize sc or t8code. */
   mpiret = sc_MPI_Init (&argc, &argv);
@@ -362,7 +400,7 @@ main (int argc, char *argv[])
                          "Display a short help message.");
   sc_options_add_string (opt, 'f', "file", &filename, "", "png file.");
   sc_options_add_switch (opt, 'i', "invert", &invert_int,
-                         "Invert the refinement (refine bright areas, not dark).");
+                         "Invert the refinement (refine bright areas, not dark). Does not invert alpha channel.");
   sc_options_add_int (opt, 'l', "level", &level, 0,
                       "The initial refinement level of the mesh. Default 0.");
   sc_options_add_int (opt, 'm', "maxlevel", &maxlevel, 10,
@@ -370,7 +408,11 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 't', "threshold", &threshold, 100,
                       "How sensitive the refinement reacts to RGB values.\n"
                       "\t\t\t\t\tThe mesh is refined in areas with red + green + blue < threshold.\n"
-                      "\t\t\t\t\tValues must be between 0 and 3*255.");
+                      "\t\t\t\t\tValues must be between 0 and 3*255. Default 100.");
+  sc_options_add_int (opt, 'a', "alpha-threshold", &alpha_threshold, 0,
+                      "How sensitive the removal reacts to alpha values.\n"
+                      "\t\t\t\t\tThe mesh is removed in areas with alpha < alpha-threshold.\n"
+                      "\t\t\t\t\tValues must be between 0 and 255. Default 0.");
   sc_options_add_int (opt, 'e', "element_shape", &element_choice, 0,
                       "The shape of elements to use:\n"
                       "\t\t\t 0: quad\n"
@@ -393,6 +435,7 @@ main (int argc, char *argv[])
       adapt_context.invert = invert;
       adapt_context.maxlevel = maxlevel;
       adapt_context.threshold = threshold;
+      adapt_context.alpha_threshold = alpha_threshold;
       build_forest (level, element_choice, sc_MPI_COMM_WORLD, &adapt_context);
       png2mesh_image_cleanup (pngimage);
     }
