@@ -427,7 +427,22 @@ main (int argc, char *argv[])
   }
   else if (parsed >= 0 && 0 <= level && strcmp (filename, "") &&
            (element_choice >= 0 && element_choice <= 2)
-           && level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
+           && level <= maxlevel && 0 <= threshold && threshold <= 3 * 255
+           && 0 <= alpha_threshold && alpha_threshold <= 255) {
+    /* Currently, removing elements only works on a single process and not
+     * in parallel (The t8code Ghost routine seems to hang).
+     * So we check whether we are running in parallel and abort if necessary. */
+    {
+      int mpisize;
+      mpiret = sc_MPI_Comm_size (sc_MPI_COMM_WORLD, &mpisize);
+      SC_CHECK_MPI (mpiret);
+      
+      if (mpisize > 1 && alpha_threshold < 255) {
+        fprintf (stderr, "ERROR: Removing elements does not work on multiple processes. You should set the alpha threshold to 255.\n");
+        return 1;
+      }
+    }
+
     pngimage = png2mesh_read_png (filename);
     invert = invert_int != 0;
     if (pngimage != NULL) {
