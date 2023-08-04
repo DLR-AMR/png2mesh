@@ -21,6 +21,7 @@ typedef struct
 } png2mesh_adapt_context_t;
 
 typedef enum {
+  PNG2MESH_NOTSET,
   PNG2MESH_DONOTHING,
   PNG2MESH_REFINE,
   PNG2MESH_COARSEN,
@@ -168,8 +169,24 @@ png2mesh_search_callback (t8_forest_t forest,
           /* If the marker was set to refine, then do not change it, since some query pixel
            * triggered refinement.
            * Otherwise, set it to REFINE or REMOVE depending on the pixel. */
+          /* If not set then use adapt value.
+           * If set to remove and adapt value is not remove then refine.
+           * If set to not remove and adapt value is remove then refine.
+           * If adapt value is refine then refine.
+           */
           if (*refinement_marker != PNG2MESH_REFINE) {
-            *refinement_marker = pixel_adapt_value;
+            if (*refinement_marker == PNG2MESH_NOTSET) {
+              *refinement_marker = pixel_adapt_value;
+            }
+            else if (*refinement_marker == PNG2MESH_REMOVE && pixel_adapt_value != PNG2MESH_REMOVE) {
+              *refinement_marker = PNG2MESH_REFINE;
+            }
+            else if (*refinement_marker != PNG2MESH_REMOVE && pixel_adapt_value == PNG2MESH_REMOVE) {
+              *refinement_marker = PNG2MESH_REFINE;
+            }
+            else {
+              *refinement_marker = pixel_adapt_value;
+            }
           }
         }
         return 1;
@@ -310,10 +327,10 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     sc_array_resize ((sc_array_t *) &adapt_context->refinement_markers,
                      num_elements);
     for (ielement = 0; ielement < num_elements; ++ielement) {
-      /* Set all refinement markers to do nothing. */
+      /* Set all refinement markers to do not set. */
       *(png2mesh_adapt_value_t *) t8_sc_array_index_locidx ((sc_array_t *)
                                          &adapt_context->refinement_markers,
-                                         ielement) = PNG2MESH_DONOTHING;
+                                         ielement) = PNG2MESH_NOTSET;
     }
     /* Search and create the refinement markers. */
     t8_forest_search (forest, png2mesh_search_callback,
