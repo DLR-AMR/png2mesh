@@ -101,12 +101,13 @@ png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid,
 
 int
 png2mesh_search_callback (t8_forest_t forest,
-                          t8_locidx_t ltreeid,
+                          const t8_locidx_t ltreeid,
                           const t8_element_t *element,
                           const int is_leaf,
-                          t8_element_array_t *leaf_elements,
-                          t8_locidx_t
-                          tree_leaf_index, void *query, size_t query_index)
+                          const t8_element_array_t *leaf_elements,
+                          const t8_locidx_t
+                          tree_leaf_index, void *query, sc_array_t *query_indices,
+                          int *query_matches, const size_t num_active_queries)
 {
 
   if (query != NULL) {
@@ -129,8 +130,11 @@ png2mesh_search_callback (t8_forest_t forest,
     if (png2mesh_pixel_match
         (ctx->image, pixel_x, pixel_y, ctx->invert, ctx->threshold)) {
       /* This pixel is a pixel for which we refine elements. */
-      if (t8_forest_element_point_inside
-          (forest, ltreeid, element, pixel_scaled_coords, 1e-10)) {
+
+      int is_inside = 0;
+      t8_forest_element_points_inside
+          (forest, ltreeid, element, pixel_scaled_coords, 1, &is_inside, 1e-10);
+      if (is_inside) {
         /* This pixel is contained in the element */
         if (is_leaf) {
           /* We mark this element for later refinement. */
