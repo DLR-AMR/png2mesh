@@ -109,51 +109,69 @@ png2mesh_search_callback (t8_forest_t forest,
                           tree_leaf_index, void *query, sc_array_t *query_indices,
                           int *query_matches, const size_t num_active_queries)
 {
-
+  printf ("Num active = %i\n", num_active_queries);
   if (query != NULL) {
+
     const png2mesh_adapt_context_t *ctx =
       (const png2mesh_adapt_context_t *) t8_forest_get_user_data (forest);
-    const int           query_value = *(int *) query;
-    const int           pixel_x = query_value % ctx->image->width;
-    const int           pixel_y = query_value / ctx->image->width;
-    const double        pixel_scaled_coords[3] = {
-      pixel_x / (double) ctx->image->width,
-      1 - pixel_y / (double) ctx->image->height,
-      0
-    };
+    /* Compute for each query whether it is inside the element or not.
+     * We do this in batch for all queries at the same time. */
+    int *is_inside = T8_ALLOC (int, num_active_queries); // Allocate memory for the is_inside return values
+    double *pixel_scaled_coords = T8_ALLOC (double, 3*num_active_queries); // Allocate memory for the queries coordinates
+    for (size_t iquery = 0;iquery < num_active_queries;++iquery) {
+      const int           query_value = *(int *) sc_array_index ((sc_array_t*)query, iquery);
+      const int           pixel_x = query_value % ctx->image->width;
+      const int           pixel_y = query_value / ctx->image->width;
 
-    const double       *tree_vertices =
-      t8_forest_get_tree_vertices (forest, ltreeid);
+      assert (0 <= pixel_x && pixel_x < ctx->image->width);
+      assert (0 <= pixel_y && pixel_y < ctx->image->height);
 
-    assert (0 <= pixel_x && pixel_x < ctx->image->width);
-    assert (0 <= pixel_y && pixel_y < ctx->image->height);
-    if (png2mesh_pixel_match
-        (ctx->image, pixel_x, pixel_y, ctx->invert, ctx->threshold)) {
-      /* This pixel is a pixel for which we refine elements. */
+      pixel_scaled_coords[3 * iquery] = pixel_x / (double) ctx->image->width;
+      pixel_scaled_coords[3 * iquery + 1] = 1 - pixel_y / (double) ctx->image->height;
+      pixel_scaled_coords[3 * iquery + 2] = 0;
 
-      int is_inside = 0;
-      t8_forest_element_points_inside
-          (forest, ltreeid, element, pixel_scaled_coords, 1, &is_inside, 1e-10);
-      if (is_inside) {
+    }
+
+    t8_forest_element_points_inside
+        (forest, ltreeid, element, pixel_scaled_coords, num_active_queries, is_inside, 1e-10);
+    T8_FREE (pixel_scaled_coords);
+
+    for (size_t iquery = 0;iquery < num_active_queries;++iquery) {
+      const int           query_value = *(int *) sc_array_index ((sc_array_t*)query, iquery);
+      const int           pixel_x = query_value % ctx->image->width;
+      const int           pixel_y = query_value / ctx->image->width;
+
+
+      query_matches[iquery] = 0;
+
+      if (is_inside[iquery]) {
         /* This pixel is contained in the element */
-        if (is_leaf) {
-          /* We mark this element for later refinement. */
-          const t8_locidx_t   element_index =
-            tree_leaf_index + t8_forest_get_tree_element_offset (forest,
-                                                                 ltreeid);
-          *(int *) t8_sc_array_index_locidx ((sc_array_t *)
-                                             &ctx->refinement_markers,
-                                             element_index) = 1;
+        if (png2mesh_pixel_match
+            (ctx->image, pixel_x, pixel_y, ctx->invert, ctx->threshold)) {
+          /* This pixel is a pixel for which we refine elements. */
+          query_matches[iquery] = 1;
+          if (is_leaf) {
+            printf ("Pixel %i %i is in element. Mark for refinement\n", pixel_x, pixel_y);
+            /* We mark this element for later refinement. */
+            const t8_locidx_t   element_index =
+              tree_leaf_index + t8_forest_get_tree_element_offset (forest,
+                                                                  ltreeid);
+            *(int *) t8_sc_array_index_locidx ((sc_array_t *)
+                                              &ctx->refinement_markers,
+                                              element_index) = 1;
+            /* We can end the search recursion here since we have found one matching pixel and will refine the element. */
+            T8_FREE (is_inside);
+            return 1;
+          }
         }
-        return 1;
       }
     }
-    /* The pixel does not match or is not contained in the element. */
-    return 0;
+    T8_FREE (is_inside);
   }
   else {                        /* query == NULL */
     return 1;
   }
+  return 0;
 }
 
 int
