@@ -12,11 +12,18 @@ project (PNG2MESH)
 set(CMAKE_C_COMPILER mpicc)
 set(CMAKE_CXX_COMPILER mpicxx)
 
-# Add t8code include directories
-INCLUDE_DIRECTORIES($ENV{T8_INCLUDE})
-INCLUDE_DIRECTORIES($ENV{T8_INCLUDE}/t8_cmesh)
-# Add t8code library directories
-LINK_DIRECTORIES($ENV{T8_LIB})
+## Add t8code include directories
+#INCLUDE_DIRECTORIES($ENV{T8_INCLUDE})
+#INCLUDE_DIRECTORIES($ENV{T8_INCLUDE}/t8_cmesh)
+## Add t8code library directories
+#LINK_DIRECTORIES($ENV{T8_LIB})
+
+# Searchers for t8code build with CMake
+# To add a seach path use 
+#  -DT8CODE_DIR=PATH,
+#  -DP4EST_DIR=PATH,
+#  -DSC_DIR=PATH,
+find_package ( T8CODE REQUIRED)
 
 # Using PNG_INCLUDE and PNG_LIB is only necessary when
 # the compiler does not find the PNG library.
@@ -31,7 +38,8 @@ LINK_DIRECTORIES($ENV{PNG_LIB})
 add_library (png2mesh png2mesh_build_mesh.cxx png2mesh_readpng.c)
 
 # Link library against t8code, p4est, sc, and png
-target_link_libraries (png2mesh t8 p4est sc png)
+target_link_libraries (png2mesh png )
+target_link_libraries (png2mesh PRIVATE T8CODE::T8 )
 
 # Make sure the compiler can find include files for our png2mesh library
 # when other libraries or executables link to png2mesh
