@@ -74,6 +74,16 @@ png2mesh_image_t *png2mesh_read_png(const char* filename)
         /* Read the png info */
         png_read_info(image->png_ptr, image->info_ptr);
 
+        /* Read and check color depth. */
+
+        const png_byte bit_depth = png_get_bit_depth(image->png_ptr, image->info_ptr);
+        if (bit_depth != 8) {
+                fprintf(stderr, "[png2mesh] ERROR: File %s has color bit depth %i, but png2mesh only supports 8. Maybe you can convert your file?\n", filename, bit_depth);
+                free (image);
+                return NULL;
+        }
+
+
         /* Read width and height of image */
         image->width = png_get_image_width(image->png_ptr, image->info_ptr);
         image->height = png_get_image_height(image->png_ptr, image->info_ptr);
