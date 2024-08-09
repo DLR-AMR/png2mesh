@@ -110,7 +110,6 @@ png2mesh_search_callback (t8_forest_t forest,
                           tree_leaf_index, void *query, sc_array_t *query_indices,
                           int *query_matches, const size_t num_active_queries)
 {
-  printf ("Num active = %i\n", num_active_queries);
   if (query != NULL) {
 
     const png2mesh_adapt_context_t *ctx =
@@ -152,7 +151,6 @@ png2mesh_search_callback (t8_forest_t forest,
           /* This pixel is a pixel for which we refine elements. */
           query_matches[iquery] = 1;
           if (is_leaf) {
-            printf ("Pixel %i %i is in element. Mark for refinement\n", pixel_x, pixel_y);
             /* We mark this element for later refinement. */
             const t8_locidx_t   element_index =
               tree_leaf_index + t8_forest_get_tree_element_offset (forest,
@@ -288,7 +286,6 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
   png2mesh_build_query_array (&search_queries, adapt_context);
   for (ilevel = level; ilevel < adapt_context->maxlevel; ++ilevel) {
     t8_forest_set_user_data (forest, (void *) adapt_context);
-    printf ("Starting search on level %i\n", ilevel);
     /* Fill adapt markers array */
     const t8_locidx_t   num_elements =
       t8_forest_get_local_num_elements (forest);
