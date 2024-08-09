@@ -3,17 +3,14 @@
 #include <sc_options.h>
 #include <t8.h>
 
-#if 0
 #include <t8_forest/t8_forest.h>
 #include <t8_forest/t8_forest_iterate.h>
 #include <t8_cmesh.h>
 #include <t8_cmesh/t8_cmesh_examples.h>
 #include <t8_schemes/t8_default/t8_default.hxx>
-#endif
 #include <assert.h>
 #include "png2mesh_readpng.h"
 
-#if 0
 typedef struct
 {
   const png2mesh_image_t *image;
@@ -351,7 +348,6 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
 
   t8_forest_unref (&forest_balance);
 }
-#endif
 
 int
 main (int argc, char *argv[])
@@ -414,7 +410,6 @@ main (int argc, char *argv[])
            && level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
     pngimage = png2mesh_read_png (filename);
     png2mesh_print_png (pngimage);
-    #if 0
     png2mesh_adapt_context_t adapt_context;
     invert = invert_int != 0;
     if (pngimage != NULL) {
@@ -425,7 +420,6 @@ main (int argc, char *argv[])
       build_forest (level, element_choice, sc_MPI_COMM_WORLD, &adapt_context);
       png2mesh_image_cleanup (pngimage);
     }
-    #endif
   }
   else {
     /* wrong usage */
