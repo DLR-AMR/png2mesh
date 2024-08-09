@@ -23,7 +23,7 @@ set(CMAKE_CXX_COMPILER mpicxx)
 #  -DT8CODE_DIR=PATH,
 #  -DP4EST_DIR=PATH,
 #  -DSC_DIR=PATH,
-find_package ( T8CODE REQUIRED)
+find_package ( T8CODE 2.0 REQUIRED)
 
 # Using PNG_INCLUDE and PNG_LIB is only necessary when
 # the compiler does not find the PNG library.
