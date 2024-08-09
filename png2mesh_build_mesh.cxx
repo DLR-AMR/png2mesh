@@ -2,11 +2,14 @@
 #include <libgen.h>
 #include <sc_options.h>
 #include <t8.h>
+
+#if 0
 #include <t8_forest/t8_forest.h>
 #include <t8_forest/t8_forest_iterate.h>
 #include <t8_cmesh.h>
 #include <t8_cmesh/t8_cmesh_examples.h>
 #include <t8_schemes/t8_default/t8_default.hxx>
+#endif
 #include <assert.h>
 #include "png2mesh_readpng.h"
 
