@@ -10,6 +10,7 @@
 #include <assert.h>
 #include "png2mesh_readpng.h"
 
+#if 0
 typedef struct
 {
   const png2mesh_image_t *image;
@@ -347,6 +348,7 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
 
   t8_forest_unref (&forest_balance);
 }
+#endif
 
 int
 main (int argc, char *argv[])
@@ -361,7 +363,6 @@ main (int argc, char *argv[])
   int                 invert_int = 0;
   bool                invert = false;
   png2mesh_image_t   *pngimage;
-  png2mesh_adapt_context_t adapt_context;
   sc_options_t       *opt;
   const char         *filename;
   const char         *help =
@@ -409,6 +410,8 @@ main (int argc, char *argv[])
            (element_choice >= 0 && element_choice <= 2)
            && level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
     pngimage = png2mesh_read_png (filename);
+    #if 0
+    png2mesh_adapt_context_t adapt_context;
     invert = invert_int != 0;
     if (pngimage != NULL) {
       adapt_context.image = pngimage;
@@ -418,6 +421,7 @@ main (int argc, char *argv[])
       build_forest (level, element_choice, sc_MPI_COMM_WORLD, &adapt_context);
       png2mesh_image_cleanup (pngimage);
     }
+    #endif
   }
   else {
     /* wrong usage */
