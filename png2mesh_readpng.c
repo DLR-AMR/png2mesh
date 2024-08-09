@@ -141,9 +141,10 @@ void png2mesh_print_png (const png2mesh_image_t *image)
         printf ("Size:\t%i x %i\n", image->width, image->height);
         printf ("Values pp:\t%i\n", image->num_values_per_pixel);
 
-        for (int x = 0;x < image->width;++x) {
-                printf ("%i:\t", x);
-                for (int y = 0;y < image->height;++y) {
+        if (image->width > 10 || image->height > 10) return; // Do not print large pictures.
+        for (int y = 0;y < image->height;++y) {
+                printf ("%i:\t", y);
+                for (int x = 0;x < image->width;++x) {
                      png_byte *RGBA;
                      png2mesh_get_rgba (image, x, y, &RGBA);
 
