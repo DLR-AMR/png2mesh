@@ -186,10 +186,7 @@ png2mesh_adapt (t8_forest_t forest,
 {
   const png2mesh_adapt_context_t *ctx =
     (const png2mesh_adapt_context_t *) t8_forest_get_user_data (forest_from);
-  const png2mesh_image_t *image = ctx->image;
   const int           maxlevel = ctx->maxlevel;
-  const double       *tree_vertices =
-    t8_forest_get_tree_vertices (forest_from, which_tree);
   const t8_locidx_t   element_index =
     lelement_id + t8_forest_get_tree_element_offset (forest_from, which_tree);
 
@@ -222,7 +219,6 @@ png2mesh_build_query_array (sc_array_t *queries,
   int                 ipixel;
   const png2mesh_image_t *image = adapt_context->image;
   const int           num_pixels = image->width * image->height;
-  int                 array_entry;
 
   sc_array_init (queries, sizeof (int));
   for (ipixel = 0; ipixel < num_pixels; ++ipixel) {
@@ -278,7 +274,6 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     t8_forest_new_uniform (cmesh, scheme, level, 0, comm);
   t8_forest_t         forest_adapt;     // = t8_forest_new_adapt (forest, png2mesh_adapt, 1, 0, (void*) adapt_context);
   t8_forest_t         forest_balance;
-  t8_forest_t         forest_partition;
   sc_array_t          search_queries;
   char                vtuname[BUFSIZ];
   int                 ilevel;
