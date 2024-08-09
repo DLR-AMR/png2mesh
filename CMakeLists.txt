@@ -38,8 +38,8 @@ LINK_DIRECTORIES($ENV{PNG_LIB})
 add_library (png2mesh png2mesh_build_mesh.cxx png2mesh_readpng.c)
 
 # Link library against t8code, p4est, sc, and png
-target_link_libraries (png2mesh png )
 target_link_libraries (png2mesh PRIVATE T8CODE::T8 )
+target_link_libraries (png2mesh png )
 
 # Make sure the compiler can find include files for our png2mesh library
 # when other libraries or executables link to png2mesh
