@@ -28,6 +28,7 @@ png2mesh_pixel_match (const png2mesh_image_t * image, const int pixel_x,
   png_byte           *pixel = NULL;
   png2mesh_get_rgba (image, pixel_x, pixel_y, &pixel);
   int                 pixel_sum = pixel[0] + pixel[1] + pixel[2];
+  
   if (!invert) {
     if (pixel_sum <= dark_threshold) {
       return 1;
@@ -119,7 +120,8 @@ png2mesh_search_callback (t8_forest_t forest,
     int *is_inside = T8_ALLOC (int, num_active_queries); // Allocate memory for the is_inside return values
     double *pixel_scaled_coords = T8_ALLOC (double, 3*num_active_queries); // Allocate memory for the queries coordinates
     for (size_t iquery = 0;iquery < num_active_queries;++iquery) {
-      const int           query_value = *(int *) sc_array_index ((sc_array_t*)query, iquery);
+      const size_t query_index = *(size_t *) sc_array_index (query_indices, iquery);
+      const int           query_value = *(int *) sc_array_index ((sc_array_t*)query, query_index);
       const int           pixel_x = query_value % ctx->image->width;
       const int           pixel_y = query_value / ctx->image->width;
 
