@@ -410,6 +410,7 @@ main (int argc, char *argv[])
            (element_choice >= 0 && element_choice <= 2)
            && level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
     pngimage = png2mesh_read_png (filename);
+    png2mesh_print_png (pngimage);
     #if 0
     png2mesh_adapt_context_t adapt_context;
     invert = invert_int != 0;
