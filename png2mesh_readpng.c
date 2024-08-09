@@ -99,11 +99,9 @@ png2mesh_image_t *png2mesh_read_png(const char* filename)
         image->color_type = png_get_color_type(image->png_ptr, image->info_ptr);
         if (image->color_type == PNG_COLOR_TYPE_RGB) {
                 image->num_values_per_pixel = 3;
-                printf ("Reading color type RGB.\n");
         }
         else if (image->color_type == PNG_COLOR_TYPE_RGBA) {
                 image->num_values_per_pixel = 4;
-                printf ("Reading color type RGBA.\n");
         }
         else {
                 fprintf(stderr, "[png2mesh] ERROR: Color type of %s is not supported.\n", filename);
@@ -136,14 +134,22 @@ void png2mesh_print_png (const png2mesh_image_t *image)
         assert (image != NULL);
         assert (image->rgba_values != NULL);
 
-        printf ("Printing image.\n");
-        printf ("File:\t%s\n", image->filename);
-        printf ("Size:\t%i x %i\n", image->width, image->height);
-        printf ("Values pp:\t%i\n", image->num_values_per_pixel);
+
+        char color_type[BUFSIZ];
+        snprintf (color_type, BUFSIZ, "%s", image->color_type == PNG_COLOR_TYPE_RGB ? "RGB" :
+                                            image->color_type == PNG_COLOR_TYPE_RGBA ? "RGBA" :
+                                            "UNDEFINED");
+
+        printf ("[png2mesh] Printing image.\n");
+        printf ("[png2mesh] File:\t\t%s\n", image->filename);
+        printf ("[png2mesh] Color Type:\t\t%s\n", color_type);
+        printf ("[png2mesh] Size:\t\t%i x %i\n", image->width, image->height);
+        printf ("[png2mesh] Size:\t\t%i x %i\n", image->width, image->height);
+        printf ("[png2mesh] Values per pixel:\t%i\n", image->num_values_per_pixel);
 
         if (image->width > 10 || image->height > 10) return; // Do not print large pictures.
         for (int y = 0;y < image->height;++y) {
-                printf ("%i:\t", y);
+                printf ("[png2mesh] %i:\t", y);
                 for (int x = 0;x < image->width;++x) {
                      png_byte *RGBA;
                      png2mesh_get_rgba (image, x, y, &RGBA);

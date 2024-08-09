@@ -214,7 +214,8 @@ png2mesh_adapt (t8_forest_t forest,
  */
 void
 png2mesh_build_query_array (sc_array_t *queries,
-                            const png2mesh_adapt_context_t * adapt_context)
+                            const png2mesh_adapt_context_t * adapt_context,
+                            int mpirank)
 {
   int                 ipixel;
   const png2mesh_image_t *image = adapt_context->image;
@@ -231,8 +232,8 @@ png2mesh_build_query_array (sc_array_t *queries,
       *(int *) sc_array_push (queries) = ipixel;
     }
   }
-  printf ("Build search array with %zd pixels (of %i)\n", queries->elem_count,
-          num_pixels);
+  printf ("[png2mesh] [%i] Build search array with %zd pixels (of %i)\n", mpirank, queries->elem_count,
+            num_pixels);
 }
 
 /*
@@ -242,7 +243,8 @@ png2mesh_build_query_array (sc_array_t *queries,
  */
 void
 build_forest (int level, int element_choice, sc_MPI_Comm comm,
-              const png2mesh_adapt_context_t * adapt_context)
+              const png2mesh_adapt_context_t * adapt_context,
+              int mpirank)
 {
   t8_scheme_cxx_t    *scheme = t8_scheme_new_default_cxx ();
 
@@ -280,7 +282,7 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
 
   sc_array_init ((sc_array_t *) &adapt_context->refinement_markers,
                  sizeof (int));
-  png2mesh_build_query_array (&search_queries, adapt_context);
+  png2mesh_build_query_array (&search_queries, adapt_context, mpirank);
   for (ilevel = level; ilevel < adapt_context->maxlevel; ++ilevel) {
     t8_forest_set_user_data (forest, (void *) adapt_context);
     /* Fill adapt markers array */
@@ -335,11 +337,12 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
   }
   t8_forest_write_vtk (forest_balance, vtuname);
 
-  printf ("\nSuccessfully build AMR mesh for picture %s.\n",
-          adapt_context->image->filename);
-  printf ("Width:  %i px\nHeight: %i px\n", adapt_context->image->width,
-          adapt_context->image->height);
-
+  if (mpirank == 0) {
+    printf ("\n[png2mesh] Successfully build AMR mesh for picture %s.\n",
+            adapt_context->image->filename);
+    printf ("[png2mesh] Width:  %i px\n[png2mesh] Height: %i px\n", adapt_context->image->width,
+            adapt_context->image->height);
+  }
   t8_forest_unref (&forest_balance);
 }
 
@@ -403,7 +406,15 @@ main (int argc, char *argv[])
            (element_choice >= 0 && element_choice <= 2)
            && level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
     pngimage = png2mesh_read_png (filename);
-    png2mesh_print_png (pngimage);
+
+    int mpirank;
+    mpiret = sc_MPI_Comm_rank (sc_MPI_COMM_WORLD, &mpirank);
+    SC_CHECK_MPI (mpiret);
+    if (mpirank == 0) {
+      // Print some info about the png image.
+      // If the image is smaller than 10x10 pixels, the RGB values of each pixel are printed.
+      png2mesh_print_png (pngimage);
+    }
     png2mesh_adapt_context_t adapt_context;
     invert = invert_int != 0;
     if (pngimage != NULL) {
@@ -411,7 +422,7 @@ main (int argc, char *argv[])
       adapt_context.invert = invert;
       adapt_context.maxlevel = maxlevel;
       adapt_context.threshold = threshold;
-      build_forest (level, element_choice, sc_MPI_COMM_WORLD, &adapt_context);
+      build_forest (level, element_choice, sc_MPI_COMM_WORLD, &adapt_context, mpirank);
       png2mesh_image_cleanup (pngimage);
     }
   }
