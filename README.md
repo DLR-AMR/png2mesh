@@ -31,12 +31,14 @@ optional: Paraview to visualize the resulting meshes.
 # installation
 
 Before installing ensure that t8code, p4est, sc and libpng are installed.
-If t8code, p4est and sc are installed to non-standard directories,
-the following environment variables must be set:
 
-T8_INCLUDE -- Include directory of t8code, p4est and sc.
+png2mesh will automatically search for installations of t8code, p4est and sc.
+If they are not found or you want to use a non-standard directory, you can provide the paths manually by setting
+-DT8CODE_DIR=PATH,
+-DP4EST_DIR=PATH,
+-DSC_DIR=PATH,
 
-T8_LIB -- Library directory containing the t8code, p4est and sc libraries.
+Note the PATH must point to a folder containing T8CODEConfig.cmake, P4ESTConfig,cmake or SCConfig.cmake respectively.
 
 If libpng is installed in a non-standard directory (or cannot be found),
 the following environment variables must be set:
