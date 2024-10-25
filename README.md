@@ -39,6 +39,7 @@ If they are not found or you want to use a non-standard directory, you can provi
 -DSC_DIR=PATH,
 
 Note the PATH must point to a folder containing T8CODEConfig.cmake, P4ESTConfig,cmake or SCConfig.cmake respectively.
+
 If libpng is installed in a non-standard directory (or cannot be found),
 the following environment variables must be set:
 
