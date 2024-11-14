@@ -108,7 +108,19 @@ png2mesh_search_callback (t8_forest_t forest,
                           const int is_leaf,
                           const t8_element_array_t *leaf_elements,
                           const t8_locidx_t
-                          tree_leaf_index, void *query, sc_array_t *query_indices,
+                          tree_leaf_index)
+{
+  return 1;
+}
+
+void
+png2mesh_query_callback (t8_forest_t forest,
+                          const t8_locidx_t ltreeid,
+                          const t8_element_t *element,
+                          const int is_leaf,
+                          const t8_element_array_t *leaf_elements,
+                          const t8_locidx_t
+                          tree_leaf_index, sc_array_t *query, sc_array_t *query_indices,
                           int *query_matches, const size_t num_active_queries)
 {
   if (query != NULL) {
@@ -162,7 +174,7 @@ png2mesh_search_callback (t8_forest_t forest,
                                               element_index) = 1;
             /* We can end the search recursion here since we have found one matching pixel and will refine the element. */
             T8_FREE (is_inside);
-            return 1;
+            return;
           }
         }
       }
@@ -170,9 +182,9 @@ png2mesh_search_callback (t8_forest_t forest,
     T8_FREE (is_inside);
   }
   else {                        /* query == NULL */
-    return 1;
+   return;
   }
-  return 0;
+  return;
 }
 
 int
@@ -299,7 +311,7 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     }
     /* Search and create the refinement markers. */
     t8_forest_search (forest, png2mesh_search_callback,
-                      png2mesh_search_callback, &search_queries);
+                      png2mesh_query_callback, &search_queries);
     t8_forest_init (&forest_adapt);
     t8_forest_set_adapt (forest_adapt, forest, png2mesh_adapt, 0);
     t8_forest_set_partition (forest_adapt, forest, 0);
