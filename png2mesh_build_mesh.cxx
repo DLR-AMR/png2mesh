@@ -45,7 +45,7 @@ png2mesh_pixel_match (const png2mesh_image_t * image, const int pixel_x,
 int
 png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid,
                                  const t8_element_t *element,
-                                 t8_eclass_scheme_c *scheme,
+                                 const t8_scheme *scheme,
                                  const double *tree_vertices,
                                  const png2mesh_image_t * image,
                                  const int dark_threshold, const bool invert)
@@ -60,7 +60,8 @@ png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid,
   assert (image != NULL);
   assert (image->rgba_values != NULL);
 
-  element_shape = scheme->t8_element_shape (element);
+  const t8_eclass_t tree_class = t8_forest_get_tree_class (forest, ltreeid);
+  element_shape = scheme->element_get_shape (tree_class, element);
   assert (element_shape == T8_ECLASS_TRIANGLE
           || element_shape == T8_ECLASS_QUAD);
   second_vertex = element_shape == T8_ECLASS_QUAD ? 3 : 2;
@@ -102,13 +103,12 @@ png2mesh_element_has_dark_pixel (t8_forest_t forest, t8_locidx_t ltreeid,
 }
 
 int
-png2mesh_search_callback (t8_forest_t forest,
-                          const t8_locidx_t ltreeid,
-                          const t8_element_t *element,
-                          const int is_leaf,
-                          const t8_element_array_t *leaf_elements,
-                          const t8_locidx_t
-                          tree_leaf_index)
+png2mesh_search_callback ([[maybe_unused]]t8_forest_t forest,
+                          [[maybe_unused]]const t8_locidx_t ltreeid,
+                          [[maybe_unused]]const t8_element_t *element,
+                          [[maybe_unused]]const int is_leaf,
+                          [[maybe_unused]]const t8_element_array_t *leaf_elements,
+                          [[maybe_unused]]const t8_locidx_t tree_leaf_index)
 {
   return 1;
 }
@@ -118,7 +118,7 @@ png2mesh_query_callback (t8_forest_t forest,
                           const t8_locidx_t ltreeid,
                           const t8_element_t *element,
                           const int is_leaf,
-                          const t8_element_array_t *leaf_elements,
+                          [[maybe_unused]] const t8_element_array_t *leaf_elements,
                           const t8_locidx_t
                           tree_leaf_index, sc_array_t *query, sc_array_t *query_indices,
                           int *query_matches, const size_t num_active_queries)
@@ -187,14 +187,17 @@ png2mesh_query_callback (t8_forest_t forest,
   return;
 }
 
+
 int
-png2mesh_adapt (t8_forest_t forest,
+png2mesh_adapt ([[maybe_unused]] t8_forest_t forest,
                 t8_forest_t forest_from,
                 t8_locidx_t which_tree,
+                t8_eclass_t tree_class,
                 t8_locidx_t lelement_id,
-                t8_eclass_scheme_c *ts,
-                const int is_family,
-                const int num_elements, t8_element_t *elements[])
+                const t8_scheme *scheme,
+                [[maybe_unused]] const int is_family,
+                [[maybe_unused]] const int num_elements, 
+                t8_element_t *elements[])
 {
   const png2mesh_adapt_context_t *ctx =
     (const png2mesh_adapt_context_t *) t8_forest_get_user_data (forest_from);
@@ -202,7 +205,7 @@ png2mesh_adapt (t8_forest_t forest,
   const t8_locidx_t   element_index =
     lelement_id + t8_forest_get_tree_element_offset (forest_from, which_tree);
 
-  if (ts->t8_element_level (elements[0]) >= maxlevel) {
+  if (scheme->element_get_level (tree_class, elements[0]) >= maxlevel) {
     /* We do not refine if the element's level exceeds the provided maximum level */
     return 0;
   }
@@ -258,7 +261,7 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
               const png2mesh_adapt_context_t * adapt_context,
               int mpirank)
 {
-  t8_scheme_cxx_t    *scheme = t8_scheme_new_default_cxx ();
+  const t8_scheme    *scheme = t8_scheme_new_default ();
 
   t8_cmesh_t          cmesh;
   char                element_string[BUFSIZ];
@@ -299,7 +302,7 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     t8_forest_set_user_data (forest, (void *) adapt_context);
     /* Fill adapt markers array */
     const t8_locidx_t   num_elements =
-      t8_forest_get_local_num_elements (forest);
+      t8_forest_get_local_num_leaf_elements (forest);
     t8_locidx_t         ielement;
     sc_array_resize ((sc_array_t *) &adapt_context->refinement_markers,
                      num_elements);
