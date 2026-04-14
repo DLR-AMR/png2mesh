@@ -9,7 +9,11 @@
 #include <t8_cmesh/t8_cmesh_examples.h>
 #include <t8_schemes/t8_default/t8_default.hxx>
 #include <assert.h>
+#include <vector>
+#include <iostream>
+#include <filesystem>
 #include "png2mesh_readpng.h"
+#include "png2mesh_dither.hxx"
 
 typedef struct
 {
@@ -19,6 +23,8 @@ typedef struct
   bool                invert;   /* If true, refine bright areas, not dark. */
   sc_array_t          refinement_markers;       /* For each element 1 if it should be refined, 0 if not. */
 } png2mesh_adapt_context_t;
+
+
 
 int
 png2mesh_pixel_match (const png2mesh_image_t * image, const int pixel_x,
@@ -323,11 +329,18 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
   }
   sc_array_reset ((sc_array_t *) &adapt_context->refinement_markers);
   sc_array_reset (&search_queries);
+  
+  // Compute the basename of the file withouth ending.
+  // "/test/filename.png" -> "filename"
+  std::filesystem::path path(adapt_context->image->filename);
+  std::string basename = path.stem().string();
+  const char *c_basename = basename.c_str();
+  std::cout << "Basename of " << adapt_context->image->filename << ":  " << c_basename << std::endl;
 
   sreturn =
-    snprintf (vtuname, BUFSIZ, "t8_png_adapt_%s_%s_t%i",
-              basename ((char *) adapt_context->image->filename),
-              element_string, adapt_context->threshold);
+    snprintf (vtuname, BUFSIZ, "t8_png_adapt_%s_%s_t%04i_d%03i",
+              c_basename,
+              element_string, adapt_context->threshold, adapt_context->image->dither_per_subgrid);
   if (sreturn >= BUFSIZ) {
     /* String was truncated. */
     /* Note: gcc >= 7.1 prints a warning if we 
@@ -341,9 +354,10 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
   t8_forest_commit (forest_balance);
 
   sreturn =
-    snprintf (vtuname, BUFSIZ, "t8_png_balance_%s_%s_t%i",
-              basename ((char *) adapt_context->image->filename),
-              element_string, adapt_context->threshold);
+    snprintf (vtuname, BUFSIZ, "t8_png_balance_%s_%s_t%04i_d%03i",
+              c_basename,
+              element_string, adapt_context->threshold,
+              adapt_context->image->dither_per_subgrid);
   if (sreturn >= BUFSIZ) {
     /* String was truncated. */
     /* Note: gcc >= 7.1 prints a warning if we 
@@ -372,6 +386,7 @@ main (int argc, char *argv[])
   int                 threshold;
   int                 element_choice = 0;
   int                 invert_int = 0;
+  int                 dither_per_subgrid;
   bool                invert = false;
   png2mesh_image_t   *pngimage;
   sc_options_t       *opt;
@@ -401,6 +416,8 @@ main (int argc, char *argv[])
                       "The initial refinement level of the mesh. Default 0.");
   sc_options_add_int (opt, 'm', "maxlevel", &maxlevel, 10,
                       "The maximum allowed refinement level of the mesh. Default 10.");
+  sc_options_add_int (opt, 'd', "dither_size", &dither_per_subgrid, 0,
+                      "If positive: Control the dithering effect of the image. Larger values provide more dithering subgrids. Default 0 (no dither).");
   sc_options_add_int (opt, 't', "threshold", &threshold, 100,
                       "How sensitive the refinement reacts to RGB values.\n"
                       "\t\t\t\t\tThe mesh is refined in areas with red + green + blue < threshold.\n"
@@ -421,14 +438,22 @@ main (int argc, char *argv[])
            (element_choice >= 0 && element_choice <= 2)
            && level <= maxlevel && 0 <= threshold && threshold <= 3 * 255) {
     pngimage = png2mesh_read_png (filename);
+    pngimage->dither_per_subgrid = dither_per_subgrid;
 
     int mpirank;
     mpiret = sc_MPI_Comm_rank (sc_MPI_COMM_WORLD, &mpirank);
     SC_CHECK_MPI (mpiret);
+
+    if (dither_per_subgrid > 0) {
+      std::cout << "Applying dithering with " << dither_per_subgrid << " dithers per subgrid." << std::endl;
+      png2mesh_apply_dither (pngimage, TWO_BY_TWO, dither_per_subgrid, threshold);
+    }
+
     if (mpirank == 0) {
       // Print some info about the png image.
       // If the image is smaller than 10x10 pixels, the RGB values of each pixel are printed.
       png2mesh_print_png (pngimage);
+      png2mesh_write_png (pngimage, "test_dither.png");
     }
     png2mesh_adapt_context_t adapt_context;
     invert = invert_int != 0;

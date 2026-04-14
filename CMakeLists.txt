@@ -35,7 +35,7 @@ LINK_DIRECTORIES($ENV{PNG_LIB})
 
 # Create a library called "png2mesh" which includes the source files.
 # The extension is already found. Any number of sources could be listed here.
-add_library (png2mesh png2mesh_build_mesh.cxx png2mesh_readpng.c)
+add_library (png2mesh png2mesh_build_mesh.cxx png2mesh_readpng.c png2mesh_dither.cxx)
 
 # Link library against t8code, p4est, sc, and png
 target_link_libraries (png2mesh PRIVATE T8CODE::T8 )
@@ -47,7 +47,7 @@ target_include_directories (png2mesh PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Add executable called "png2mesh_demo" that is built from the source file
 # "png2mesh_build_mesh.cxx". The extensions are automatically found.
-add_executable (png2mesh_demo png2mesh_build_mesh.cxx)
+add_executable (png2mesh_demo png2mesh_build_mesh.cxx png2mesh_dither.cxx)
 
 # Link the executable to the png2mesh library. Since the library has
 # public include directories we will use those link directories when building
