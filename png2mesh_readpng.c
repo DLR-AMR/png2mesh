@@ -129,6 +129,42 @@ png2mesh_image_t *png2mesh_read_png(const char* filename)
         return image;
 }
 
+
+int  png2mesh_write_png (const png2mesh_image_t *image, const char* file_name)
+{
+        FILE *file = fopen (file_name, "wb");
+        if (file == NULL) {
+                fprintf (stderr, "Could not write to file %s.\n", file_name);
+                return 0;
+        }
+#if 1
+        png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+        if (png_ptr == NULL) {
+                // cannot create png structure
+                fprintf(stderr, "Cannot create png structure for output to %s.\n", file_name);
+
+                // close file
+                fclose(file);
+                return 0;
+        }
+#endif
+        png_infop info = image->info_ptr;
+        //png_infop info = png_create_info_struct(png_ptr);
+        png_init_io(png_ptr, file);
+//        const int bit_depth = 8;
+
+//        png_set_IHDR(png_ptr, info, image->width, image->height, bit_depth, PNG_COLOR_TYPE_RGB,
+//                 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+        png_write_info(png_ptr, info);
+        png_set_rows(png_ptr, info, image->rgba_values);
+        png_write_png (png_ptr, info, PNG_TRANSFORM_IDENTITY, NULL);
+        png_write_end(png_ptr, info);
+ //       png_destroy_write_struct(&png_ptr, NULL);
+
+        fclose(file);
+        return 1;
+}
+
 void png2mesh_print_png (const png2mesh_image_t *image)
 {
         assert (image != NULL);
@@ -161,6 +197,14 @@ void png2mesh_print_png (const png2mesh_image_t *image)
                 }
                 printf ("\n");
         }
+}
+
+void png2mesh_set_pixel_bw (png_byte *pixel, const int black_or_white)
+{
+        const png_byte value = black_or_white ? 255 : 0;
+        pixel[0] = value;
+        pixel[1] = value;
+        pixel[2] = value;
 }
 
 void png2mesh_get_rgba(const png2mesh_image_t *image, const int x, const int y, png_byte **RGBA)

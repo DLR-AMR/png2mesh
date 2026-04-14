@@ -7,6 +7,7 @@ typedef struct
 {
     int width, height;
     int num_values_per_pixel;
+    int dither_per_subgrid;
     png_structp png_ptr;
 	png_infop info_ptr;
     png_bytep *rgba_values;
@@ -21,6 +22,8 @@ extern "C" {
 
 
 png2mesh_image_t *png2mesh_read_png(const char* file_name);
+int  png2mesh_write_png(const png2mesh_image_t *image, const char* file_name);
+void png2mesh_set_pixel_bw (png_byte *pixel, const int black_or_white);
 void png2mesh_get_rgba(const png2mesh_image_t *image, const int x, const int y, png_byte **RGBA);
 void png2mesh_image_cleanup (png2mesh_image_t *mypng);
 void png2mesh_print_png (const png2mesh_image_t *image);
