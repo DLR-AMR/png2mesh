@@ -5,7 +5,7 @@
 
 #include <t8_forest/t8_forest.h>
 #include <t8_forest/t8_forest_iterate.h>
-#include <t8_cmesh.h>
+#include <t8_cmesh/t8_cmesh.h>
 #include <t8_cmesh/t8_cmesh_examples.h>
 #include <t8_schemes/t8_default/t8_default.hxx>
 #include <assert.h>
@@ -270,15 +270,16 @@ build_forest (int level, int element_choice, sc_MPI_Comm comm,
     /* Build quad or triangle square */
     const t8_eclass_t   element_class =
       element_choice == 0 ? T8_ECLASS_QUAD : T8_ECLASS_TRIANGLE;
-    cmesh =
-      t8_cmesh_new_hypercube (element_class, sc_MPI_COMM_WORLD, 0, 0, 0);
+    t8_cmesh_init (&cmesh);
+    t8_cmesh_new_hypercube (&cmesh, element_class, sc_MPI_COMM_WORLD, 0, 0, 0);
     sreturn =
       snprintf (element_string, BUFSIZ, "%s",
                 t8_eclass_to_string[element_class]);
   }
   else {
     T8_ASSERT (element_choice == 3);
-    cmesh = t8_cmesh_new_periodic_hybrid (comm);
+    t8_cmesh_init (&cmesh);
+    t8_cmesh_new_periodic_hybrid (cmesh, comm);
     sreturn = snprintf (element_string, BUFSIZ, "quadtrihybrid");
   }
   if (sreturn >= BUFSIZ) {
